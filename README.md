@@ -1,1 +1,1 @@
-# Flexible Lithics Recording Tool [FLIRT]
+# Flexible Lithic Recording Tool [FLIRT]
