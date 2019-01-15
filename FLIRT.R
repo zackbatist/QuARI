@@ -224,7 +224,7 @@ shinyApp(
         pool %>% tbl("level3") %>% collect()
       })
       
-      
+      #XFindResponses <- data.frame()
       #if LocusType is XFind, parse its component parts
       if (input$LocusType == "XFind") {
         LocusValue <- reactiveValues(Locus = input$Locus)
@@ -233,19 +233,26 @@ shinyApp(
         XFindNumber <- substr(LocusValue, 5, 8)
         
         #make a data frame with fields that equate to the level2 table in the database and fill it with values from the data entry fields and from the above definitions
-        XFindValues <<- values$singleResponse_df
+        XFindValues <- reactiveValues(XFindSingleResponse_df = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
+        #XFindResponses <<- rbind(XFindResponses, XFindValues$XFindSingleResponses_df)
+        
         #rename columns in singleResponse_df
-        colnames(XFindValues)[colnames(XFindValues) == 'input.Locus'] <- 'Locus'
-        colnames(XFindValues)[colnames(XFindValues) == 'input.LocusType'] <- 'LocusType'
-        colnames(XFindValues)[colnames(XFindValues) == 'input.Period'] <- 'Period'
-        colnames(XFindValues)[colnames(XFindValues) == 'input.Blank'] <- 'Blank'
-        colnames(XFindValues)[colnames(XFindValues) == 'input.Modification'] <- 'Modification'
-        colnames(XFindValues)[colnames(XFindValues) == 'input.Quantity'] <- 'Quantity'
+        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Locus'] <- 'Locus'
+        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.LocusType'] <- 'LocusType'
+        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Period'] <- 'Period'
+        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Blank'] <- 'Blank'
+        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Modification'] <- 'Modification'
+        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Quantity'] <- 'Quantity'
         
         #find records from the context to which this XFind pertains, and filter them to match the same characteristics as what is being entered
         XFindEquivalentToFilter <- pool %>% tbl("level2") %>% collect()
-        XFindEquivalent <- filter(XFindEquivalentToFilter, LocusType == "Context" & Locus == XFindContext & Period == XFindValues$Period & Blank == XFindValues$Blank & Modification == XFindValues$Modification)
-        XFindEquivalent <<- data.frame(XFindEquivalent, stringsAsFactors = FALSE)
+        #XFindEquivalent <- subset(XFindEquivalentToFilter, LocusType == "Context")
+        #XFindEquivalent <- subset(XFindEquivalent, Locus == XFindContext)
+        #XFindEquivalent <- subset(XFindEquivalent, Period == XFindValues$XFindSingleResponse_df$Period)
+        #XFindEquivalent <- subset(XFindEquivalent, Blank == XFindValues$XFindSingleResponse_df$Blank)
+        #XFindEquivalent <- subset(XFindEquivalent, Modification == XFindValues$XFindSingleResponse_df$Modification)
+        XFindEquivalent <- filter(XFindEquivalentToFilter, LocusType == "Context" & Locus == XFindContext & Period == XFindValues$XFindSingleResponse_df$Period & Blank == XFindValues$XFindSingleResponse_df$Blank & Modification == XFindValues$XFindSingleResponse_df$Modification)
+        #XFindEquivalent <<- data.frame(XFindEquivalent, stringsAsFactors = FALSE)
         
 
         if (is.null(XFindEquivalent$Locus)) {
