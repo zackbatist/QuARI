@@ -224,41 +224,29 @@ shinyApp(
         pool %>% tbl("level3") %>% collect()
       })
       
-      #XFindResponses <- data.frame()
+      
+      
       #if LocusType is XFind, parse its component parts
       if (input$LocusType == "XFind") {
-        LocusValue <- reactiveValues(Locus = input$Locus)
-        LocusValue <- as.character(LocusValue$Locus)
-        XFindContext <- substr(LocusValue, 1, 4)
-        XFindNumber <- substr(LocusValue, 5, 8)
-        
-        #make a data frame with fields that equate to the level2 table in the database and fill it with values from the data entry fields and from the above definitions
-        XFindValues <- reactiveValues(XFindSingleResponse_df = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
-        #XFindResponses <<- rbind(XFindResponses, XFindValues$XFindSingleResponses_df)
-        
-        #rename columns in singleResponse_df
-        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Locus'] <- 'Locus'
-        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.LocusType'] <- 'LocusType'
-        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Period'] <- 'Period'
-        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Blank'] <- 'Blank'
-        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Modification'] <- 'Modification'
-        colnames(XFindValues$XFindSingleResponse_df)[colnames(XFindValues$XFindSingleResponse_df) == 'input.Quantity'] <- 'Quantity'
-        
-        #find records from the context to which this XFind pertains, and filter them to match the same characteristics as what is being entered
-        XFindEquivalentToFilter <- pool %>% tbl("level2") %>% collect()
-        #XFindEquivalent <- subset(XFindEquivalentToFilter, LocusType == "Context")
-        #XFindEquivalent <- subset(XFindEquivalent, Locus == XFindContext)
-        #XFindEquivalent <- subset(XFindEquivalent, Period == XFindValues$XFindSingleResponse_df$Period)
-        #XFindEquivalent <- subset(XFindEquivalent, Blank == XFindValues$XFindSingleResponse_df$Blank)
-        #XFindEquivalent <- subset(XFindEquivalent, Modification == XFindValues$XFindSingleResponse_df$Modification)
-        XFindEquivalent <- filter(XFindEquivalentToFilter, LocusType == "Context" & Locus == XFindContext & Period == XFindValues$XFindSingleResponse_df$Period & Blank == XFindValues$XFindSingleResponse_df$Blank & Modification == XFindValues$XFindSingleResponse_df$Modification)
-        #XFindEquivalent <<- data.frame(XFindEquivalent, stringsAsFactors = FALSE)
-        
-
-        if (is.null(XFindEquivalent$Locus)) {
+        LocusValue <<- reactive({
+          z <- toString(input$Locus)
+          return(z)
+        })
+        XFindContext <- substr(LocusValue(), 1, 4)
+        XFindNumber <- substr(LocusValue(), 5, 8)
+      
+      #filter the list of blanks for the Blank field
+      XFindLevel2 <- dbReadTable(pool, 'level2')
+      XFindFilter <- reactive({
+        select(filter(XFindLevel2, Period==input$Period & Blank==input$Blank & Modification==input$Modification & LocusType=="Context" & Locus==XFindContext), Locus, LocusType, Period, Blank, Modification, Quantity)
+      })
+      
+      observe({
+        XFindSubset <<- XFindFilter()
+        if (is.null(XFindSubset$Locus)) {
           #if no equivalent record exists:
           #write the context to the level2 table
-          writeXFind <- dbWriteTable(pool, "level2", XFindValues, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+          writeXFind <- dbWriteTable(pool, "level2", XFindSubset, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
           writeXFind
           
           #re-read the updated table from the database and render it in the data table
@@ -271,19 +259,20 @@ shinyApp(
           level2_mysource <<- reactive({
             pool %>% tbl("level2") %>% collect()
           })
+          
         }
         else {
           #if the equivalent record already exists, update the quantity field to reflect this new xfind
-          QuantityPlusOne <- XFindEquivalent$Quantity + 1
+          QuantityPlusOne <- XFindSubset$Quantity + 1
           XFindUpdateQuery1 <- glue::glue_sql("UPDATE `level2` SET
                                               `Quantity` = {QuantityPlusOne}
-                                              WHERE `Locus` = {XFindEquivalent$Locus}
-                                              AND `Period` = {XFindEquivalent$Period}
-                                              AND `Blank` = {XFindEquivalent$Blank}
-                                              AND `Modification` = {XFindEquivalent$Modification}
+                                              WHERE `Locus` = {XFindSubset$Locus}
+                                              AND `Period` = {XFindSubset$Period}
+                                              AND `Blank` = {XFindSubset$Blank}
+                                              AND `Modification` = {XFindSubset$Modification}
                                               ", .con = pool)
           dbExecute(pool, sqlInterpolate(ANSI(), XFindUpdateQuery1))
-
+          
           
           #re-read the updated table from the database and render it in the data table
           output$level2_allDT <- DT::renderDataTable({
@@ -295,43 +284,37 @@ shinyApp(
           level2_mysource <<- reactive({
             pool %>% tbl("level2") %>% collect()
           })
+          
         }
         
-        #XFindEquivalent <- NULL
-        XFind_expanded <- expandRows(XFindValues, count = 6, count.is.col = TRUE, drop = TRUE)
-        XFind_expanded$XFind <- "1"
-        XFind_expanded$ArtefactID <- ""
-        XFind_expanded$WrittenOnArtefact <- ""
-        XFind_expanded$XFind <- XFindNumber
-        XFind_expanded$Illustration <- ""
-        XFind_expanded$RawMaterial <- ""
-        XFind_expanded$WeatheringIndex <- ""
-        XFind_expanded$Patination <- ""
-        XFind_expanded$Notes <- ""
-        XFind_expanded <- XFind_expanded[c(0:13)]
-        XFind_expanded <- data.frame(lapply(XFind_expanded, as.character), stringsAsFactors = FALSE)
-        
-        #rename columns in the expanded table
-        colnames(XFind_expanded)[colnames(XFind_expanded) == 'input.Locus'] <- 'Locus'
-        colnames(XFind_expanded)[colnames(XFind_expanded) == 'input.LocusType'] <- 'LocusType'
-        colnames(XFind_expanded)[colnames(XFind_expanded) == 'input.Period'] <- 'Period'
-        colnames(XFind_expanded)[colnames(XFind_expanded) == 'input.Blank'] <- 'Blank'
-        colnames(XFind_expanded)[colnames(XFind_expanded) == 'input.Modification'] <- 'Modification'
-        
-        write_level3 <- dbWriteTable(pool, "level3", XFind_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-        write_level3
-        
-        #read the updated level3 table from the database
-        output$level3_allDT <- DT::renderDataTable({
-          datatable(pool %>% tbl("level3") %>% collect(),
-                    extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-        })
-        
-        #update level3_mysource in the global environment
-        level3_mysource <<- reactive({
-          pool %>% tbl("level3") %>% collect()
-        })
-        
+      })
+      
+      XFind_expanded <- expandRows(XFindSubset, count = 6, count.is.col = TRUE, drop = TRUE)
+      XFind_expanded$XFind <- "1"
+      XFind_expanded$ArtefactID <- ""
+      XFind_expanded$WrittenOnArtefact <- ""
+      XFind_expanded$XFind <- XFindNumber
+      XFind_expanded$Illustration <- ""
+      XFind_expanded$RawMaterial <- ""
+      XFind_expanded$WeatheringIndex <- ""
+      XFind_expanded$Patination <- ""
+      XFind_expanded$Notes <- ""
+      XFind_expanded <- XFind_expanded[c(0:13)]
+      XFind_expanded <- data.frame(lapply(XFind_expanded, as.character), stringsAsFactors = FALSE)
+      
+      write_level3 <- dbWriteTable(pool, "level3", XFind_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+      write_level3
+      
+      #read the updated level3 table from the database
+      output$level3_allDT <- DT::renderDataTable({
+        datatable(pool %>% tbl("level3") %>% collect(),
+                  extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
+      })
+      
+      #update level3_mysource in the global environment
+      level3_mysource <<- reactive({
+        pool %>% tbl("level3") %>% collect()
+      })
       }
     })
     
