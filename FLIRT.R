@@ -260,6 +260,33 @@ shinyApp(
             pool %>% tbl("level2") %>% collect()
           })
           
+          XFind_expanded <- expandRows(XFindSubset, count = 6, count.is.col = TRUE, drop = TRUE)
+          XFind_expanded$XFind <- "1"
+          XFind_expanded$ArtefactID <- ""
+          XFind_expanded$WrittenOnArtefact <- ""
+          XFind_expanded$XFind <- XFindNumber
+          XFind_expanded$Illustration <- ""
+          XFind_expanded$RawMaterial <- ""
+          XFind_expanded$WeatheringIndex <- ""
+          XFind_expanded$Patination <- ""
+          XFind_expanded$Notes <- ""
+          XFind_expanded <- XFind_expanded[c(0:13)]
+          XFind_expanded <- data.frame(lapply(XFind_expanded, as.character), stringsAsFactors = FALSE)
+          
+          write_level3 <- dbWriteTable(pool, "level3", XFind_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+          write_level3
+          
+          #read the updated level3 table from the database
+          output$level3_allDT <- DT::renderDataTable({
+            datatable(pool %>% tbl("level3") %>% collect(),
+                      extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
+          })
+          
+          #update level3_mysource in the global environment
+          level3_mysource <<- reactive({
+            pool %>% tbl("level3") %>% collect()
+          })
+          
         }
         else {
           #if the equivalent record already exists, update the quantity field to reflect this new xfind
@@ -284,37 +311,13 @@ shinyApp(
           level2_mysource <<- reactive({
             pool %>% tbl("level2") %>% collect()
           })
-          
         }
+        
+        
         
       })
       
-      XFind_expanded <- expandRows(XFindSubset, count = 6, count.is.col = TRUE, drop = TRUE)
-      XFind_expanded$XFind <- "1"
-      XFind_expanded$ArtefactID <- ""
-      XFind_expanded$WrittenOnArtefact <- ""
-      XFind_expanded$XFind <- XFindNumber
-      XFind_expanded$Illustration <- ""
-      XFind_expanded$RawMaterial <- ""
-      XFind_expanded$WeatheringIndex <- ""
-      XFind_expanded$Patination <- ""
-      XFind_expanded$Notes <- ""
-      XFind_expanded <- XFind_expanded[c(0:13)]
-      XFind_expanded <- data.frame(lapply(XFind_expanded, as.character), stringsAsFactors = FALSE)
       
-      write_level3 <- dbWriteTable(pool, "level3", XFind_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-      write_level3
-      
-      #read the updated level3 table from the database
-      output$level3_allDT <- DT::renderDataTable({
-        datatable(pool %>% tbl("level3") %>% collect(),
-                  extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-      })
-      
-      #update level3_mysource in the global environment
-      level3_mysource <<- reactive({
-        pool %>% tbl("level3") %>% collect()
-      })
       }
     })
     
