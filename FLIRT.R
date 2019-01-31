@@ -243,7 +243,7 @@ shinyApp(
       
       observe({
         XFindSubset <<- XFindFilter()
-        if (is.null(XFindSubset$Locus)) {
+        if (nrow(XFindSubset) == 0) {
           #if no equivalent record exists:
           #write the context to the level2 table
           writeXFind <- dbWriteTable(pool, "level2", XFindSubset, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
