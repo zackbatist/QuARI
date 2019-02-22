@@ -49,7 +49,7 @@ shinyApp(
       column(width = 2,
              selectInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE)),
       column(width = 2,
-             selectInput("Period", "Period", choices = c("Lower Palaeolithic", "Lower / Middle Palaeolithic", "Middle Palaeolithic", "Middle / Upper Palaeolithic", "Upper Palaeolithic", "Upper Palaeolithic / Mesolithic", "Mesolithic", "Late Neolithic / Final Neolithic", "Final Neolithic / Early Bronze Age", "NonDiagnostic"), multiple = FALSE)),
+             selectInput("Period", "Period", choices = c("Lower Palaeolithic", "Lower / Middle Palaeolithic", "Middle Palaeolithic", "Middle / Upper Palaeolithic", "Upper Palaeolithic", "Upper Palaeolithic / Mesolithic", "Mesolithic", "Late Neolithic / Final Neolithic", "Final Neolithic / Early Bronze Age", "Non-Diagnostic"), multiple = FALSE)),
       column(width = 2,
              selectInput("Blank", "Blank", choices = blanks$Blank, multiple = FALSE)),
       column(width = 2,
@@ -71,6 +71,16 @@ shinyApp(
                 ),
                 tabPanel("Level 3 Selection",
                          DT::dataTableOutput("Level3Table")
+                ),
+                tabPanel("Photos",
+                         column(width = 2,
+                                textInput("newPhotoFilename", "Enter complete filename of new photo")),
+                         column(width = 2,
+                                actionButton("newPhoto", "Add new")),
+                         DT::dataTableOutput("PhotosTable")
+                ),
+                tabPanel("Illustrations",
+                         DT::dataTableOutput("IllustrationsTable")
                 )
     ),
     actionButton("level2_save", "Save Level 2 Changes"),
@@ -148,7 +158,7 @@ shinyApp(
             datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")
             )
           )
-
+          
           
           to_index <<- QueryResults
           
@@ -156,50 +166,95 @@ shinyApp(
         }
       })
     })
-      
+    
     observe({
-    
-    sel <- input$Level2Table_rows_selected
-    
-    if (length(sel)) {
-      Level2IndexValues <- sel
-      Level3Selection <- unlist(to_index[Level2IndexValues, c(1,4,5)])
-      Level3 <- dbReadTable(pool, 'level3')
-      Level3FilterResults <- filter(Level3, Blank==Level3Selection[2] & Modification==Level3Selection[3] & Locus==Level3Selection[1])
-    
-    output$Level3Table <- DT::renderDataTable(
-      datatable(Level3FilterResults, selection=list(mode="single", target="row")
-      )
-    )
-    }
-    else {
-      Level3 <- dbReadTable(pool, 'level3')
-      Level3FilterResults <- filter(Level3, Blank=="None")
-      output$Level3Table <- DT::renderDataTable(
-        datatable(Level3FilterResults, selection=list(mode="single", target="row")))
-    }
+      sel <- input$Level2Table_rows_selected
+      if (length(sel)) {
+        Level2IndexValues <- sel
+        Level3Selection <- unlist(to_index[Level2IndexValues, c(1,4,5)])
+        Level3 <- dbReadTable(pool, 'level3')
+        Level3FilterResults <- filter(Level3, Blank==Level3Selection[2] & Modification==Level3Selection[3] & Locus==Level3Selection[1])
+        output$Level3Table <- DT::renderDataTable(
+          datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE
+          )
+        )
+        observe({
+          SelectedCells <- input$Level3Table_cells_selected
+          if (length(SelectedCells)) {
+            Level3 <- dbReadTable(pool, 'level3')
+            Level3IndexValues <- ifelse(SelectedCells[1,2]==10, SelectedCells, c(0,0))
+            if (Level3IndexValues[1] == 0){
+              Photos <- dbReadTable(pool, 'photos')
+              PhotosFilterResults <- filter(Photos, ArtefactID=="None")
+              output$PhotosTable <- DT::renderDataTable(
+                datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
+            }
+            else {
+              PhotosSelection <- unlist(Level3[Level3IndexValues[1], 7])
+              Photos <- dbReadTable(pool, 'photos')
+              PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
+              output$PhotosTable <- DT::renderDataTable(
+                datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
+              observeEvent(input$newPhoto, {
+                newPhotoResponses <- reactiveValues(
+                  NewPhoto = input$newPhotoFilename)
+                NewPhotoValue <- as.character(newPhotoResponses$NewPhoto)
+                Photos <- dbReadTable(pool, 'photos') # re-grab in case of duplicates
+                #increment photo ID - get current list, choose highest number, increment, and include in glue_sql statement
+                newPhotoInsert <- glue::glue_sql("INSERT INTO `photos` (`Filename`, `ArtefactID`) VALUES ({NewPhotoValue}, {PhotosSelection})"
+                                                 , .con = pool)
+                dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
+                Photos <- dbReadTable(pool, 'photos')
+                PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
+                output$PhotosTable <- DT::renderDataTable(
+                  datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
+              })
+            }
+            
+          }
+          else {
+            Photos <- dbReadTable(pool, 'photos')
+            PhotosFilterResults <- filter(Photos, ArtefactID=="None")
+            output$PhotosTable <- DT::renderDataTable(
+              datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
+          }  
+        })
+      }
+        else {
+          Level3 <- dbReadTable(pool, 'level3')
+          Level3FilterResults <- filter(Level3, Blank=="None")
+          output$Level3Table <- DT::renderDataTable(
+            datatable(Level3FilterResults, selection=list(mode="single", target="cell")))
+        }
+      
+      
     })
-        
-          
-          
-          #tabIndex <- 1:6
-          #observeEvent(input$Level2Table_rows_selected, {
-          #  appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
-          #})
-          #observeEvent(input$removeTab, {
-          #  removeTab("myTabs", target=input$myTabs)
-          #})
-          
-          
-          
-          
-        
-      
-      
-
     
     
     
-    }
+    
+    
+    
+    
+    
+    #tabIndex <- 1:6
+    #observeEvent(input$Level2Table_rows_selected, {
+    #  appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
+    #})
+    #observeEvent(input$removeTab, {
+    #  removeTab("myTabs", target=input$myTabs)
+    #})
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  }
 )
 shinyApp(ui, server)
