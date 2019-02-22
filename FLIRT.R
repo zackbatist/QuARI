@@ -13,6 +13,7 @@ library(purrr)
 library(shinyjs)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
+#need to set working directory to where keys.R is
 source("keys.R")
 
 #define pool handler by pool on global level
@@ -526,7 +527,7 @@ shinyApp(
           selectedBlank <- blankChoices()
           updateSelectInput(session, inputId = "Blank", choices=c(selectedBlank[[1]]))
         })
-        message1 <- paste0(newBlankValue, "added as Blank for ", newBlankPeriodValue, " Period.")
+        message1 <- paste0(newBlankValue, " added as Blank for ", newBlankPeriodValue, " Period.")
         output$message <- renderText({message1})
       }
       else { output$message <- renderText({print("That Blank already exists for this Period")})}
@@ -563,7 +564,7 @@ shinyApp(
             selectedModification <- modificationChoices()
             updateSelectInput(session, inputId = "Modification", choices=c(selectedModification[[1]]))
           })
-          message2 <- paste0(newModificationValue, "added as Modification for ", newModificationPeriodValue, " Period.")
+          message2 <- paste0(newModificationValue, " added as Modification for ", newModificationPeriodValue, " Period.")
           output$message <- renderText({message2})
         }
         else { output$message <- renderText({print("That Modification already exists for this Period")})}
