@@ -61,9 +61,11 @@ shinyApp(
     ),
     actionButton("query", "Query"),
     actionButton("toggleNewBlankMod", "New Blank or Modification"),
+    actionButton("newTab", "New Tab"),
+    actionButton("removeTab", "Remove Tab"),
     uiOutput("newBlankMod"),
     hr(),
-    tabsetPanel(type = "tabs",
+    tabsetPanel(id = "myTabs", type = "tabs",
                 tabPanel("All Level 2",
                          DT::dataTableOutput("Level2Table")
                 ),
@@ -144,69 +146,60 @@ shinyApp(
         if (nrow(QueryResults) > 0) {
           output$Level2Table <- DT::renderDataTable(
             datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")
-                      )
             )
-          # Level3Index <- reactive({input$Level2_Table_rows_selected})
-          # Level3IndexRV <- reactive({
-          #   Level3Selected <- Level3Index()
-          #})
-            
-          xxxx <- QueryResults
+          )
+
           
-            output$x1 <- renderPrint({
-              test <- input$Level2Table_rows_selected
-            if (length(test)) {
-              cat('These rows were selected:\n\n')
-              cat(test, sep = ', ')
-            }
-              
-            })
-            
-        
-            
-            
-              
-              to_index <- xxxx
-              testindex <- input$Level2Table_rows_selected
-              
-            Level3Selection <- unlist(to_index[testindex, c(1,4,5)])
-            #take Level3Selection and use it to filter Level3
-            # Locus = Level3Selection[1], Blank = Level3Selection[2], Modification = Level3Selection[3]
-            
-            Level3 <- dbReadTable(pool, 'level3')
-            Level3QueryResultsRV <- reactive({
-              select(filter(Level3, Blank==Level3Selection[2] & Modification==Level3Selection[3] & Locus==Level3Selection[1]), Locus, LocusType, Period, Blank, Modification)
-            })
-            
-            observe({
-              Level3QueryResults <<- Level3QueryResultsRV()
-              
-              output$Level3Table <- DT::renderDataTable(
-                datatable(Level3QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")
-                )
-              )
-            })
-            
-            
-            output$x2 <- renderPrint({
-              if (length(Level3Selection)) {
-                cat('This is the index:\n\n')
-                cat(unlist(Level3Selection), sep = ', ')
-              }
-              
-            })
-            
-           
-            
+          to_index <<- QueryResults
+          
+          
         }
-        
-        })
-      
       })
+    })
+      
+    observe({
+    
+    sel <- input$Level2Table_rows_selected
+    
+    if (length(sel)) {
+      Level2IndexValues <- sel
+      Level3Selection <- unlist(to_index[Level2IndexValues, c(1,4,5)])
+      Level3 <- dbReadTable(pool, 'level3')
+      Level3FilterResults <- filter(Level3, Blank==Level3Selection[2] & Modification==Level3Selection[3] & Locus==Level3Selection[1])
+    
+    output$Level3Table <- DT::renderDataTable(
+      datatable(Level3FilterResults, selection=list(mode="single", target="row")
+      )
+    )
+    }
+    else {
+      Level3 <- dbReadTable(pool, 'level3')
+      Level3FilterResults <- filter(Level3, Blank=="None")
+      output$Level3Table <- DT::renderDataTable(
+        datatable(Level3FilterResults, selection=list(mode="single", target="row")))
+    }
+    })
+        
+          
+          
+          #tabIndex <- 1:6
+          #observeEvent(input$Level2Table_rows_selected, {
+          #  appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
+          #})
+          #observeEvent(input$removeTab, {
+          #  removeTab("myTabs", target=input$myTabs)
+          #})
+          
+          
+          
+          
+        
+      
+      
+
     
     
     
-  }
+    }
 )
-    shinyApp(ui, server)
-    
+shinyApp(ui, server)
