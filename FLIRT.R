@@ -100,7 +100,8 @@ shinyApp(
                 )
     ),
     actionButton("level2_save", "Save Level 2 Changes"),
-    actionButton("level3_save", "Save Level 3 Changes")
+    actionButton("level3_save", "Save Level 3 Changes"),
+    textOutput("x2")
   ),
   
   
@@ -228,49 +229,59 @@ shinyApp(
           select(filter(EquivRecord, Period==input$Period & Blank==input$Blank & Modification==input$Modification & LocusType==input$LocusType & Locus==input$Locus), Locus, LocusType, Period, Blank, Modification, Quantity)
         })
         observe({
-          EquivRecordSubset <<- EquivRecordFilter()
+          EquivRecordSubset <- EquivRecordFilter()
           if (nrow(EquivRecordSubset) == 0) {
             #store field values to a responses table after the submit button is clicked
-            values <- reactiveValues(singleResponse_df = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
-            responses <<- rbind(responses, values$singleResponse_df)
+              NewLevel2RecordRV <- reactiveValues(NewRecord = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
+              NewLevel2Record <- NewLevel2RecordRV$NewRecord()
+            
             #rename columns in singleResponse_df
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Locus'] <- 'Locus'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.LocusType'] <- 'LocusType'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Period'] <- 'Period'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Blank'] <- 'Blank'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Modification'] <- 'Modification'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Quantity'] <- 'Quantity'
+            colnames(NewLevel2Record)[colnames(NewLevel2Record) == 'input.Locus'] <- 'Locus'
+            colnames(NewLevel2Record)[colnames(NewLevel2Record) == 'input.LocusType'] <- 'LocusType'
+            colnames(NewLevel2Record)[colnames(NewLevel2Record) == 'input.Period'] <- 'Period'
+            colnames(NewLevel2Record)[colnames(NewLevel2Record) == 'input.Blank'] <- 'Blank'
+            colnames(NewLevel2Record)[colnames(NewLevel2Record) == 'input.Modification'] <- 'Modification'
+            colnames(NewLevel2Record)[colnames(NewLevel2Record) == 'input.Quantity'] <- 'Quantity'
             
             #write the field values to the database as a new record in the level2 table after the submit button is clicked
             #this step, as well as the following dbReadTable command, are very important since they allow the database to allocate an id to the row, which is crucial for updating modified cells
-            write_level2 <- dbWriteTable(pool, "level2", values$singleResponse_df, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            write_level2 <- dbWriteTable(pool, "level2", NewLevel2Record, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
             write_level2
+            
+            EquivRecord <- dbReadTable(pool, 'level2')
+            EquivRecordFilter <- reactive({
+              select(filter(EquivRecord, Period==input$Period & Blank==input$Blank & Modification==input$Modification & LocusType==input$LocusType & Locus==input$Locus), Locus, LocusType, Period, Blank, Modification, Quantity)
+            })
+            EquivRecordSubset <<- EquivRecordFilter()
+          
             
             #####!!!! It gets stuck in a loop here, fails to recognize that now there are equivalent records and that this branch of the if/else function should come to an end
             
-            #re-read the updated table from the database and render it in the data table
-            output$level2_allDT <- DT::renderDataTable({
-              datatable(pool %>% tbl("level2") %>% collect(),
-                        extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-            })
-            
-            #update level2_mysource in the global environment
-            level2_mysource <<- reactive({
-              pool %>% tbl("level2") %>% collect()
-            })
+            # #re-read the updated table from the database and render it in the data table
+            # output$level2_allDT <- DT::renderDataTable({
+            #   datatable(pool %>% tbl("level2") %>% collect(),
+            #             extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
+            # })
+            # 
+            # #update level2_mysource in the global environment
+            # level2_mysource <<- reactive({
+            #   pool %>% tbl("level2") %>% collect()
+            # })
           }
+          
           else {
             #if the equivalent record already exists, update the quantity field to reflect this new addition to the existing record
             #store field values to a responses table after the submit button is clicked
-            valuesx <- reactiveValues(singleResponse_dfx = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
+            NewLevel2RecordRVx <- reactiveValues(NewRecordx = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
+            NewLevel2Recordx <- NewLevel2RecordRVx$NewRecordx
             #rename columns in singleResponse_df
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Locus'] <- 'Locus'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.LocusType'] <- 'LocusType'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Period'] <- 'Period'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Blank'] <- 'Blank'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Modification'] <- 'Modification'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Quantity'] <- 'Quantity'
-            toAdd <- as.data.frame(valuesx$singleResponse_dfx)
+            colnames(NewLevel2Recordx)[colnames(NewLevel2Recordx) == 'input.Locus'] <- 'Locus'
+            colnames(NewLevel2Recordx)[colnames(NewLevel2Recordx) == 'input.LocusType'] <- 'LocusType'
+            colnames(NewLevel2Recordx)[colnames(NewLevel2Recordx) == 'input.Period'] <- 'Period'
+            colnames(NewLevel2Recordx)[colnames(NewLevel2Recordx) == 'input.Blank'] <- 'Blank'
+            colnames(NewLevel2Recordx)[colnames(NewLevel2Recordx) == 'input.Modification'] <- 'Modification'
+            colnames(NewLevel2Recordx)[colnames(NewLevel2Recordx) == 'input.Quantity'] <- 'Quantity'
+            toAdd <- as.data.frame(NewLevel2Recordx)
             
             EquivRecordQuantityUpdated <- EquivRecordSubset$Quantity + toAdd$Quantity
             EquivRecordUpdateQuery1 <- glue::glue_sql("UPDATE `level2` SET
@@ -283,16 +294,16 @@ shinyApp(
             dbExecute(pool, sqlInterpolate(ANSI(), EquivRecordUpdateQuery1))
             
             
-            #re-read the updated table from the database and render it in the data table
-            output$level2_allDT <- DT::renderDataTable({
-              datatable(pool %>% tbl("level2") %>% collect(),
-                        extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-            })
-            
-            #update the level2_mysource
-            level2_mysource <<- reactive({
-              pool %>% tbl("level2") %>% collect()
-            })
+            # #re-read the updated table from the database and render it in the data table
+            # output$level2_allDT <- DT::renderDataTable({
+            #   datatable(pool %>% tbl("level2") %>% collect(),
+            #             extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
+            # })
+            # 
+            # #update the level2_mysource
+            # level2_mysource <<- reactive({
+            #   pool %>% tbl("level2") %>% collect()
+            #})
           }
         })
       }
