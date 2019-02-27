@@ -11,6 +11,7 @@ library(devtools)
 library(pool)
 library(purrr)
 library(shinyjs)
+library(stringr)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
 #need to set working directory to where keys.R is
@@ -320,13 +321,41 @@ shinyApp(
     # })
     
     
+    Level3 <- dbReadTable(pool, 'level3')
+    ArtefactNumbers <- as.character(Level3$ArtefactID)
+    ArtefactNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", ArtefactNumbers))
+    HightestAR <- max(ArtefactNumbers_int)
+    NewAR <-  paste0("AR", HightestAR + 1)
+    if (str_length(NewAR) < 8) {
+      ExtraZeroesAR_quant <- 8 - str_length(NewAR)
+      ExtraZeroesAR <- str_dup("0", ExtraZeroesAR_quant)
+      FixedPrefixAR <- paste0("AR", ExtraZeroesAR)
+      NewAR <- gsub("(^..)", FixedPrefixAR, NewAR)
+    }
+
+    Photos <- dbReadTable(pool, 'photos')
+    PhotoNumbers <- as.character(Photos$PhotoID)
+    PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
+    HightestPH <- max(PhotoNumbers_int)
+    NewPH <-  paste0("PH", HightestPH + 1)
+    if (str_length(NewPH) < 7) {
+      ExtraZeroesPH_quant <- 7 - str_length(NewPH)
+      ExtraZeroesPH <- str_dup("0", ExtraZeroesPH_quant)
+      FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
+      NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
+    }
     
-    
-    
-    
-    
-    
-    
+    Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
+    IllustrationNumbers <- as.character(Illustrations$IllustrationNumber)
+    IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
+    HightestDR <- max(IllustrationNumbers_int)
+    NewDR <-  paste0("PH", HightestDR + 1)
+    if (str_length(NewDR) < 6) {
+      ExtraZeroesDR_quant <- 6 - str_length(NewDR)
+      ExtraZeroesDR <- str_dup("0", ExtraZeroesDR_quant)
+      FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
+      NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
+    }
     
     
   }
