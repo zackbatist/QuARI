@@ -29,32 +29,7 @@ onStop(function() {
 }) # important!
 
 
-updateDB <- function(GrabbedEntities, pool, tbl){
-  # Keep only the last modification for a cell
-  GrabbedEntities <- GrabbedEntities %>% 
-    group_by(row, col) %>% 
-    filter(value == dplyr::last(value)| is.na(value)) %>% 
-    ungroup()
-  
-  conn <- poolCheckout(pool)
-  
-  lapply(seq_len(nrow(GrabbedEntities)), function(i){
-    Locus = GrabbedEntities$Locus[i]
-    Column = dbListFields(pool, tbl)[GrabbedEntities$Column[i]]
-    Value = GrabbedEntities$Value[i]
-    
-    query <- glue::glue_sql("UPDATE {`tbl`} SET
-                            {`Column`} = {Value}
-                            WHERE Locus = {Locus}
-                            ", .con = conn)
-    
-    dbExecute(conn, sqlInterpolate(ANSI(), query))
-  })
-  
-  poolReturn(conn)
-  print(GrabbedEntities)  
-  return(invisible())
-}
+
 
 #read unmodified versions of allloci, blanks and modifications tables specifically for the input selection
 allloci <- dbReadTable(pool, 'allloci')
@@ -74,17 +49,17 @@ shinyApp(
     titlePanel("SNAP Lithics Processing"),
     fluidRow(
       column(width = 2,
-             selectInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE)),
+             selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
       column(width = 2,
-             selectInput("Locus", "Locus", choices = allloci$Locus, multiple = FALSE)),
+             selectizeInput("Locus", "Locus", choices = allloci$Locus, multiple = FALSE, selected = NULL)),
       column(width = 2,
-             selectInput("Period", "Period", choices = c(periods$Period, "all"), multiple = TRUE, selected = "Lower Palaeolithic")),
+             selectizeInput("Period", "Period", choices = c(periods$Period), multiple = TRUE, selected = NULL)),
       column(width = 2,
-             selectInput("Blank", "Blank", choices = c(blanks$Blank, "all"), multiple = TRUE, selected = "Flake 1")),
+             selectizeInput("Blank", "Blank", choices = c(blanks$Blank), multiple = TRUE, selected = NULL)),
       column(width = 2,
-             selectInput("Modification", "Modification", choices = c(modifications$Modification, "all"), multiple = TRUE, selected = "Uniface")),
+             selectizeInput("Modification", "Modification", choices = c(modifications$Modification), multiple = TRUE, selected = NULL)),
       column(width = 1,
-             numericInput("Quantity", "Quantity", "")),
+             numericInput("Quantity", "Quantity", "1")),
       column(3, verbatimTextOutput("x1")),
       column(3, verbatimTextOutput("x2"))
     ),
@@ -170,40 +145,25 @@ shinyApp(
     output$x1 <- renderPrint(cat(input$Period))
     
     
+    #this operates without needing to press the query a second time, which I find troubling for some reason
     observeEvent(input$query, {
-      # validate(
-      #   need(input$Blank != "" & input$Modification != "" & input$Period != "", "Help, I feel so empty")
-      # )
       Level2 <- dbReadTable(pool, 'level2')
       QueryResultsRV <- reactive({
-        # if ((input$Blank == "all") & (input$Modification == "all") & (input$Period == "all")) {
-        #   select(filter(Level2, (LocusType %in% input$LocusType) & (Locus %in% input$Locus)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
-        # if ((input$Blank == "all") & (input$Modification == "all") & (input$Period != "all")) {
-        #   select(filter(Level2, (LocusType %in% input$LocusType) & (Locus %in% input$Locus) & (Period %in% input$Period)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
-        # if ((input$Blank == "all") & (input$Modification != "all") & (input$Period == "all")) {
-        #   select(filter(Level2, (LocusType %in% input$LocusType) & (Locus %in% input$Locus) & (Modification %in% input$Modification)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
-        # if ((input$Blank != "all") & (input$Modification == "all") & (input$Period == "all")) {
-        #   select(filter(Level2, (LocusType %in% input$LocusType) & (Locus %in% input$Locus) & (Blank %in% input$Blank)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
-        # if ((input$Blank == "all") & (input$Modification != "all") & (input$Period != "all")) {
-        #   select(filter(Level2, (LocusType %in% input$LocusType) & (Locus %in% input$Locus) & (Period %in% input$Period) & (Modification %in% input$Modification)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
-        # if ((input$Blank != "all") & (input$Modification == "all") & (input$Period != "all")) {
-        #   select(filter(Level2, (LocusType %in% input$LocusType) & (Locus %in% input$Locus) & (Period %in% input$Period) & (Blank %in% input$Blank)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
-        # if ((input$Blank != "all") & (input$Modification != "all") & (input$Period == "all")) {
-        #   select(filter(Level2, (LocusType %in% input$LocusType) & (Locus %in% input$Locus) & (Blank %in% input$Blank) & (Modification %in% input$Modification)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
-        
-        # else {
-        select(filter(Level2, (Period %in% input$Period) & (Blank %in% input$Blank) & (Modification %in% input$Modification) & (LocusType %in% input$LocusType) & (Locus %in% input$Locus)), Locus, LocusType, Period, Blank, Modification, Quantity)
-        # }
+        filtered <- Level2
+        if (!is.null(input$Blank)) {
+          filtered <- filtered %>% filter(Blank == input$Blank)
+        }
+        if (!is.null(input$Modification)) {
+          filtered <- filtered %>% filter(Modification == input$Modification)
+        }
+        if (!is.null(input$Period)) {
+          filtered <- filtered %>% filter(Period == input$Period)
+        }
+        filtered
       })
+      #this filters the results if a matching value exists, but the results remain the same when no matching values are found in the database
+      #we need to create an error message using renderPrint that notifies the user that no matching values were found
       
-      #if input fields are blank, treat them as wild cards
       observe({
         QueryResults <<- QueryResultsRV()
         
@@ -213,14 +173,9 @@ shinyApp(
         
         if (nrow(QueryResults) > 0) {
           output$Level2Table <- DT::renderDataTable(
-            datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")
-            )
-          )
-          
+            datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
           
           to_index <<- QueryResults
-          
-          
         }
       })
     })
@@ -229,13 +184,12 @@ shinyApp(
       sel <- input$Level2Table_rows_selected
       if (length(sel)) {
         Level2IndexValues <- sel
-        Level3Selection <- unlist(to_index[Level2IndexValues, c(1,4,5)])
+        Level3Selection <- unlist(to_index[Level2IndexValues, c(2,4,5,6)])
         Level3 <- dbReadTable(pool, 'level3')
-        Level3FilterResults <- filter(Level3, Blank==Level3Selection[2] & Modification==Level3Selection[3] & Locus==Level3Selection[1])
+        Level3FilterResults <- filter(Level3, Locus==Level3Selection[1] & Period==Level3Selection[2] & Blank==Level3Selection[3] & Modification==Level3Selection[4])
         output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE
-          )
-        )
+          datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE))
+        
         observe({
           SelectedCells <- input$Level3Table_cells_selected
           if (length(SelectedCells)) {
@@ -315,55 +269,55 @@ shinyApp(
     
     
     
-    
-    
-    
-    observeEvent(input$Level3Table_cell_edit, {
-      info = input$Level3Table_cell_edit
-      
-      GrabbedEntitiesRV <- reactiveValues(
-        i = info$row,
-        j = info$col = info$col + 1,  # column index offset by 1
-        v = info$value,
-        l = QueryResults[info$row,2]
-      )
-      
-      GrabbedEntities <- NULL
-      Rowx <- GrabbedEntitiesRV$i
-      Columnx <- GrabbedEntitiesRV$j
-      Valuex <- GrabbedEntitiesRV$v
-      Locusx <- GrabbedEntitiesRV$l
-      GrabbedEntities$Row <- Rowx
-      GrabbedEntities$Column <- Columnx
-      GrabbedEntities$Value <- Valuex
-      GrabbedEntities$Locus <- Locusx
-      
-      # if (all(is.na(GrabbedEntities))) {
-      #   GrabbedEntities <- data.frame(info, stringsAsFactors = FALSE)
-      # } else {
-      #   GrabbedEntities <- dplyr::bind_rows(GrabbedEntities, data.frame(info, stringsAsFactors = FALSE))
-      # }
-      
-      Level3Mirror <- reactive({output$Level3Table})
-      #determine sameness
-    })
-    
-    observeEvent(input$level3_save, {
-      updateDB(pool = pool, tbl = "level3")
-      
-      # GrabbedLocus <- NULL
-      # GrabbedColumn <- NULL
-      # NewValue <- NULL
-      # GrabbedEntities$Locus <- GrabbedLocus
-      # GrabbedEntities$Column <- GrabbedColumn
-      # GrabbedEntities$Value <- NewValue
-      # #DataSame <- NULL
-      
-      Level3 <- dbReadTable(pool, 'level3')
-      QueryResults <<- QueryResultsRV()
-      output$Level2Table <- DT::renderDataTable(
-        datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
-    })
+    # 
+    # 
+    # 
+    # observeEvent(input$Level3Table_cell_edit, {
+    #   info = input$Level3Table_cell_edit
+    #   
+    #   GrabbedEntitiesRV <- reactiveValues(
+    #     i = info$row,
+    #     j = info$col = info$col + 1,  # column index offset by 1
+    #     v = info$value,
+    #     l = QueryResults[info$row,2]
+    #   )
+    #   
+    #   GrabbedEntities <- NULL
+    #   Rowx <- GrabbedEntitiesRV$i
+    #   Columnx <- GrabbedEntitiesRV$j
+    #   Valuex <- GrabbedEntitiesRV$v
+    #   Locusx <- GrabbedEntitiesRV$l
+    #   GrabbedEntities$Row <- Rowx
+    #   GrabbedEntities$Column <- Columnx
+    #   GrabbedEntities$Value <- Valuex
+    #   GrabbedEntities$Locus <- Locusx
+    #   
+    #   # if (all(is.na(GrabbedEntities))) {
+    #   #   GrabbedEntities <- data.frame(info, stringsAsFactors = FALSE)
+    #   # } else {
+    #   #   GrabbedEntities <- dplyr::bind_rows(GrabbedEntities, data.frame(info, stringsAsFactors = FALSE))
+    #   # }
+    #   
+    #   Level3Mirror <- reactive({output$Level3Table})
+    #   #determine sameness
+    # })
+    # 
+    # observeEvent(input$level3_save, {
+    #   updateDB(pool = pool, tbl = "level3")
+    #   
+    #   # GrabbedLocus <- NULL
+    #   # GrabbedColumn <- NULL
+    #   # NewValue <- NULL
+    #   # GrabbedEntities$Locus <- GrabbedLocus
+    #   # GrabbedEntities$Column <- GrabbedColumn
+    #   # GrabbedEntities$Value <- NewValue
+    #   # #DataSame <- NULL
+    #   
+    #   Level3 <- dbReadTable(pool, 'level3')
+    #   QueryResults <<- QueryResultsRV()
+    #   output$Level2Table <- DT::renderDataTable(
+    #     datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
+    # })
     
     
     
