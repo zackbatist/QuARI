@@ -12,6 +12,8 @@ library(pool)
 library(purrr)
 library(shinyjs)
 library(stringr)
+library(shinyBS)
+library(shinydashboard)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
 #need to set working directory to where keys.R is
@@ -30,7 +32,12 @@ onStop(function() {
 }) # important!
 
 
-
+# This function will create the buttons for the datatable, they will be unique
+shinyInput <- function(FUN, len, id, ...) {inputs <- character(len)
+for (i in seq_len(len)) {
+  inputs[i] <- as.character(FUN(paste0(id, i), ...))}
+inputs
+}
 
 #read unmodified versions of allloci, blanks and modifications tables specifically for the input selection
 allloci <- dbReadTable(pool, 'allloci')
@@ -72,7 +79,8 @@ shinyApp(
     hr(),
     tabsetPanel(id = "myTabs", type = "tabs",
                 tabPanel("All Level 2",
-                         DT::dataTableOutput("Level2Table")
+                         DT::dataTableOutput("Level2Table"),
+                         uiOutput("popup")
                 ),
                 tabPanel("Level 3 Selection",
                          DT::dataTableOutput("Level3Table")
@@ -138,11 +146,7 @@ shinyApp(
     #store content of the input fields
     responses <- data.frame()
     singleResponse <- reactive(
-      data.frame(
-        input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity
-      )
-      
-    )
+      data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
     output$x1 <- renderPrint(cat(input$Period))
     
     
@@ -173,11 +177,56 @@ shinyApp(
         #}
         
         if (nrow(QueryResults) > 0) {
+          
+          #-------
+          QueryResultsxx <- reactive({
+            withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults),'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\",  this.id)' ), QueryResults))
+            withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults),'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\",  this.id)' ), withUpdateButton))
+          })
+          QueryResults <- QueryResultsxx()
+          
+          # Here I created a reactive to save which row was clicked which can be stored for further analysis
+          SelectedRow <- eventReactive(input$UpdateButton, {
+            as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
+          })
+          SelectedRow <- eventReactive(input$DeleteButton, {
+            as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
+          })
+          
+          # This is needed so that the button is clicked once for modal to show, a bug reported here
+          # https://github.com/ebailey78/shinyBS/issues/57
+          observeEvent(input$UpdateButton, {
+            toggleModal(session, "modalExample", "open")
+          })
+          observeEvent(input$DeleteButton, {
+            toggleModal(session, "modalExample", "open")
+          })
+          
+          DataRow <- eventReactive(input$UpdateButton, {
+            QueryResults()[SelectedRow(),2:ncol(QueryResults())]
+          })
+          DataRow <- eventReactive(input$DeleteButton, {
+            QueryResults()[SelectedRow(),2:ncol(QueryResults())]
+          })
+          
+          output$popup <- renderUI( {
+            bsModal("modalExample", paste0("Data for Row Number: ", SelectedRow()), "", size = "large",
+                    column(12,                   
+                           DT::renderDataTable(DataRow())
+                    )
+            )
+          })
+          #----
+          
           output$Level2Table <- DT::renderDataTable(
-            datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
+            datatable(QueryResults, extensions = 'Buttons', filter="top", escape = FALSE,rownames= FALSE, selection=list(mode="single", target="row")))
           
           to_index <<- QueryResults
         }
+        
+        
+        
+        
       })
     })
     
@@ -242,11 +291,6 @@ shinyApp(
       
       
     })
-    
-    
-    
-    
-    
     
     
     
@@ -320,7 +364,10 @@ shinyApp(
     #     datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
     # })
     
+
     
+    
+    #-----
     Level3 <- dbReadTable(pool, 'level3')
     ArtefactNumbers <- as.character(Level3$ArtefactID)
     ArtefactNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", ArtefactNumbers))
@@ -344,7 +391,7 @@ shinyApp(
       FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
       NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
     }
-    
+
     Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
     IllustrationNumbers <- as.character(Illustrations$IllustrationNumber)
     IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
@@ -356,6 +403,11 @@ shinyApp(
       FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
       NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
     }
+
+
+
+    
+    
     
     
   }
