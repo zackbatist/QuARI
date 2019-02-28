@@ -106,42 +106,37 @@ shinyApp(
   server <- function(input, output, session){
     #define the fields we want to save from the form
     fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity")
-    # 
-    # 
-    # #filter the list of loci for the Locus field
-    # allloci <- dbReadTable(pool, 'allloci')
-    # locusChoices <- reactive({
-    #   filter(allloci, LocusType==input$LocusType) %>%
-    #     select(Locus) %>%
-    #     arrange(Locus)
-    # })
+    
     # 
     # observe({
-    #   selectedpoint <- locusChoices()
-    #   updateSelectInput(session, inputId = "Locus", choices=c(selectedpoint[[1]]))
+    #   Level2 <- dbReadTable(pool, 'level2')
+    #   FilteredSelectionsRV <- reactive({
+    #     filtered <- Level2
+    #     if (!is.null(input$Locus)) {
+    #       filtered <- filtered %>% filter(Locus == input$Locus)
+    #     }
+    #     if (!is.null(input$Blank)) {
+    #       filtered <- filtered %>% filter(Blank == input$Blank)
+    #     }
+    #     if (!is.null(input$Modification)) {
+    #       filtered <- filtered %>% filter(Modification == input$Modification)
+    #     }
+    #     if (!is.null(input$Period)) {
+    #       filtered <- filtered %>% filter(Period == input$Period)
+    #     }
+    #     filtered
+    #   })
+    #   
+    #   observe({
+    #   FilteredSelections <<- FilteredSelectionsRV()
+    #   updateSelectInput(session, inputId = "Locus", choices=c(FilteredSelections$Locus))
+    #   updateSelectInput(session, inputId = "Period", choices=c(FilteredSelections$Period))
+    #   updateSelectInput(session, inputId = "Blank", choices=c(FilteredSelections$Blank))
+    #   updateSelectInput(session, inputId = "Modification", choices=c(FilteredSelections$Modification))
+    #   })
     # })
     # 
-    # #filter the list of blanks for the Blank field
-    # blanks <- dbReadTable(pool, 'blanks_excavation')
-    # blankChoices <- reactive({
-    #   select(filter(blanks, Period==input$Period), Blank)
-    # })
-    # 
-    # observe({
-    #   selectedBlank <- blankChoices()
-    #   updateSelectInput(session, inputId = "Blank", choices=c(selectedBlank[[1]]))
-    # })
-    # 
-    # #filter the list of modifications for the Modification field
-    # modifications <- dbReadTable(pool, 'modifications_excavation')
-    # modificationChoices <- reactive({
-    #   select(filter(modifications, Period==input$Period), Modification)
-    # })
-    # 
-    # observe({
-    #   selectedModification <- modificationChoices()
-    #   updateSelectInput(session, inputId = "Modification", choices=c(selectedModification[[1]]))
-    # })
+    
     
     #store content of the input fields
     responses <- data.frame()
