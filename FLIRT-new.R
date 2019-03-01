@@ -19,6 +19,7 @@ library(shinydashboard)
 #need to set working directory to where keys.R is
 source("keys.R")
 
+
 #define pool handler by pool on global level
 pool <- pool::dbPool(drv = RMariaDB::MariaDB(),
                      dbname = dbnamex,
@@ -146,6 +147,7 @@ shinyApp(
     
     
     #this operates without needing to press the query a second time, which I find troubling for some reason
+    #also it should wipe the existing table that's displayed when a new query is submitted
     observeEvent(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
       QueryResultsRV <- reactive({
@@ -214,12 +216,15 @@ shinyApp(
           #----
           
           output$Level2Table <- DT::renderDataTable(
-            datatable(QueryResults, extensions = 'Buttons', filter="top", escape = FALSE,rownames= FALSE, selection=list(mode="single", target="row")))
+            datatable(QueryResults[,-3], extensions = 'Buttons', filter="top", escape = FALSE,rownames= FALSE, selection=list(mode="single", target="row")), options=list(columns.width=c("30%","30%",NULL, NULL,NULL,NULL,NULL,"50%",NULL,"50%")))  #I'd like to control column width here (and elsewhere) - we're wasting lots of space on columns that don't need it.  Setting options=list(columns.width) is an attempt to do that, but I'm not convinced it's doing anything at all
+          #added [,-1] to QueryResults to exclude 'id' column, which I think can only confuse things
           
           to_index <<- QueryResults
         }
         
-        
+        if (nrow(QueryResults) == 0) {
+          output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+        }
         
         
       })
@@ -388,10 +393,10 @@ shinyApp(
     }
 
     Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
-    IllustrationNumbers <- as.character(Illustrations$IllustrationNumber)
+    IllustrationNumbers <- as.character(Illustrations$IllustrationNumber) 
     IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
     HightestDR <- max(IllustrationNumbers_int)
-    NewDR <-  paste0("PH", HightestDR + 1)
+    NewDR <-  paste0("DR", HightestDR + 1) 
     if (str_length(NewDR) < 6) {
       ExtraZeroesDR_quant <- 6 - str_length(NewDR)
       ExtraZeroesDR <- str_dup("0", ExtraZeroesDR_quant)
