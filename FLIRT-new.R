@@ -58,7 +58,8 @@ shinyApp(
     titlePanel("SNAP Lithics Processing"),
     fluidRow(
       column(width = 2,
-             selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
+    #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated         
+             selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),  
       column(width = 2,
              selectizeInput("Locus", "Locus", choices = allloci$Locus, multiple = FALSE, selected = NULL)),
       column(width = 2,
@@ -68,7 +69,7 @@ shinyApp(
       column(width = 2,
              selectizeInput("Modification", "Modification", choices = c(modifications$Modification), multiple = TRUE, selected = NULL)),
       column(width = 1,
-             numericInput("Quantity", "Quantity", "1")),
+             numericInput("Quantity", "Quantity", "1", min=0)),
       column(3, verbatimTextOutput("x1")),
       column(3, verbatimTextOutput("x2"))
     ),
@@ -128,6 +129,7 @@ shinyApp(
     #     filtered
     #   })
     #   
+    # this second observe() takes filtered results and uses them to populate options for filters
     #   observe({
     #   FilteredSelections <<- FilteredSelectionsRV()
     #   updateSelectInput(session, inputId = "Locus", choices=c(FilteredSelections$Locus))
@@ -144,36 +146,45 @@ shinyApp(
     singleResponse <- reactive(
       data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
     output$x1 <- renderPrint(cat(input$Period))
+    #these lines (above) exist only for testing purposes I think
     
     
     #this operates without needing to press the query a second time, which I find troubling for some reason
-    #also it should wipe the existing table that's displayed when a new query is submitted
     observeEvent(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
       QueryResultsRV <- reactive({
         filtered <- Level2
         if (!is.null(input$Blank)) {
-          filtered <- filtered %>% filter(Blank == input$Blank)
+          filtered <- filtered %>% filter(Blank %in% input$Blank)
         }
         if (!is.null(input$Modification)) {
-          filtered <- filtered %>% filter(Modification == input$Modification)
+          filtered <- filtered %>% filter(Modification %in% input$Modification)
         }
         if (!is.null(input$Period)) {
-          filtered <- filtered %>% filter(Period == input$Period)
+          filtered <- filtered %>% filter(Period %in% input$Period)
         }
         filtered
       })
-      #this filters the results if a matching value exists, but the results remain the same when no matching values are found in the database
+      
+
+      #the logic doesn't quite work here - I think we want to return nothing if no selection at all is made, but once any one thing is selected then the return everything and filter that as requested.  Currently that's not quite happening - I think that any time nothing is selected in a filter we get nothing?
       #we need to create an error message using renderPrint that notifies the user that no matching values were found
       
       observe({
-        QueryResults <<- QueryResultsRV()
+        if (identical(QueryResultsRV(), Level2) == T) {
+          QueryResults <<- filter(Level2, LocusType=="none")    # if filtered == Level2, return empty and return error message
+        }
+        else {
+          QueryResults <<- QueryResultsRV()
+        }
+
         
         #if there are no results, create the option to create a record with the values in the input fields
-        #if (nrow(QueryResults) == 0) {
-        #}
+        if (nrow(QueryResults) == 0) {
+          output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+        }
         
-        if (nrow(QueryResults) > 0) {
+        if (nrow(QueryResults) > 0 & nrow(QueryResults) != nrow(Level2)) {
           
           #-------
           QueryResultsxx <- reactive({
@@ -217,9 +228,9 @@ shinyApp(
           
           output$Level2Table <- DT::renderDataTable(
             datatable(QueryResults[,-3], extensions = 'Buttons', filter="top", escape = FALSE,rownames= FALSE, selection=list(mode="single", target="row")), options=list(columns.width=c("30%","30%",NULL, NULL,NULL,NULL,NULL,"50%",NULL,"50%")))  #I'd like to control column width here (and elsewhere) - we're wasting lots of space on columns that don't need it.  Setting options=list(columns.width) is an attempt to do that, but I'm not convinced it's doing anything at all
-          #added [,-1] to QueryResults to exclude 'id' column, which I think can only confuse things
+          #added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things
           
-          to_index <<- QueryResults
+          to_index <<- QueryResults[,-c(1,2)]  #this excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
         }
         
         if (nrow(QueryResults) == 0) {
@@ -238,7 +249,7 @@ shinyApp(
         Level3 <- dbReadTable(pool, 'level3')
         Level3FilterResults <- filter(Level3, Locus==Level3Selection[1] & Period==Level3Selection[2] & Blank==Level3Selection[3] & Modification==Level3Selection[4])
         output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE))
+          datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE)) #should eliminate 'id' field from results returned
         
         observe({
           SelectedCells <- input$Level3Table_cells_selected
