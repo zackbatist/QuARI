@@ -58,7 +58,7 @@ shinyApp(
     titlePanel("SNAP Lithics Processing"),
     fluidRow(
       column(width = 2,
-    #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated         
+             #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated         
              selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),  
       column(width = 2,
              selectizeInput("Locus", "Locus", choices = allloci$Locus, multiple = FALSE, selected = NULL)),
@@ -103,8 +103,6 @@ shinyApp(
     
   ),
   
-  
-  
   server <- function(input, output, session){
     #define the fields we want to save from the form
     fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity")
@@ -140,7 +138,6 @@ shinyApp(
     # })
     # 
     
-    
     #store content of the input fields
     responses <- data.frame()
     singleResponse <- reactive(
@@ -148,283 +145,240 @@ shinyApp(
     output$x1 <- renderPrint(cat(input$Period))
     #these lines (above) exist only for testing purposes I think
     
-    
-    #this operates without needing to press the query a second time, which I find troubling for some reason
-    observeEvent(input$query, {
+    QueryResults <- eventReactive(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
-      QueryResultsRV <- reactive({
-        filtered <- Level2
-        if (!is.null(input$Blank)) {
-          filtered <- filtered %>% filter(Blank %in% input$Blank)
-        }
-        if (!is.null(input$Modification)) {
-          filtered <- filtered %>% filter(Modification %in% input$Modification)
-        }
-        if (!is.null(input$Period)) {
-          filtered <- filtered %>% filter(Period %in% input$Period)
-        }
-        filtered
-      })
-      
-
-      #the logic doesn't quite work here - I think we want to return nothing if no selection at all is made, but once any one thing is selected then the return everything and filter that as requested.  Currently that's not quite happening - I think that any time nothing is selected in a filter we get nothing?
-      #we need to create an error message using renderPrint that notifies the user that no matching values were found
-      
-      observe({
-        if (identical(QueryResultsRV(), Level2) == T) {
-          QueryResults <<- filter(Level2, LocusType=="none")    # if filtered == Level2, return empty and return error message
-        }
-        else {
-          QueryResults <<- QueryResultsRV()
-        }
-
-        
-        #if there are no results, create the option to create a record with the values in the input fields
-        if (nrow(QueryResults) == 0) {
-          output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
-        }
-        
-        if (nrow(QueryResults) > 0 & nrow(QueryResults) != nrow(Level2)) {
-          
-          #-------
-          QueryResultsxx <- reactive({
-            withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults),'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\",  this.id)' ), QueryResults))
-            withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults),'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\",  this.id)' ), withUpdateButton))
-          })
-          QueryResults <- QueryResultsxx()
-          
-          # Here I created a reactive to save which row was clicked which can be stored for further analysis
-          SelectedRow <- eventReactive(input$UpdateButton, {
-            as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
-          })
-          SelectedRow <- eventReactive(input$DeleteButton, {
-            as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
-          })
-          
-          # This is needed so that the button is clicked once for modal to show, a bug reported here
-          # https://github.com/ebailey78/shinyBS/issues/57
-          observeEvent(input$UpdateButton, {
-            toggleModal(session, "modalExample", "open")
-          })
-          observeEvent(input$DeleteButton, {
-            toggleModal(session, "modalExample", "open")
-          })
-          
-          DataRow <- eventReactive(input$UpdateButton, {
-            QueryResults()[SelectedRow(),2:ncol(QueryResults())]
-          })
-          DataRow <- eventReactive(input$DeleteButton, {
-            QueryResults()[SelectedRow(),2:ncol(QueryResults())]
-          })
-          
-          output$popup <- renderUI( {
-            bsModal("modalExample", paste0("Data for Row Number: ", SelectedRow()), "", size = "large",
-                    column(12,                   
-                           DT::renderDataTable(DataRow())
-                    )
-            )
-          })
-          #----
-          
-          output$Level2Table <- DT::renderDataTable(
-            datatable(QueryResults[,-3], extensions = 'Buttons', filter="top", escape = FALSE,rownames= FALSE, selection=list(mode="single", target="row")), options=list(columns.width=c("30%","30%",NULL, NULL,NULL,NULL,NULL,"50%",NULL,"50%")))  #I'd like to control column width here (and elsewhere) - we're wasting lots of space on columns that don't need it.  Setting options=list(columns.width) is an attempt to do that, but I'm not convinced it's doing anything at all
-          #added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things
-          
-<<<<<<< HEAD
-          to_index <<- QueryResults[,-c(1,2)]
-=======
-          to_index <<- QueryResults[,-c(1,2)]  #this excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
->>>>>>> abf5e04a14aeba6113c3476fc535d2050c38efcd
-        }
-        
-        if (nrow(QueryResults) == 0) {
-          output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
-        }
-        
-        
-      })
+      filtered <- Level2
+      if (!is.null(input$Blank)) {
+        filtered <- filtered %>% filter(Blank %in% input$Blank)
+      }
+      if (!is.null(input$Modification)) {
+        filtered <- filtered %>% filter(Modification %in% input$Modification)
+      }
+      if (!is.null(input$Period)) {
+        filtered <- filtered %>% filter(Period %in% input$Period)
+      }
+      filtered
     })
     
     observe({
-      sel <- input$Level2Table_rows_selected
-      if (length(sel)) {
-        Level2IndexValues <- sel
-        Level3Selection <- unlist(to_index[Level2IndexValues, c(2,4,5,6)])
-        Level3 <- dbReadTable(pool, 'level3')
-        Level3FilterResults <- filter(Level3, Locus==Level3Selection[1] & Period==Level3Selection[2] & Blank==Level3Selection[3] & Modification==Level3Selection[4])
-        output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE)) #should eliminate 'id' field from results returned
+      Level2 <- dbReadTable(pool, 'level2')
+      EmptyDT <- filter(QueryResults(), LocusType=="blah")
+      if (identical(QueryResults(), Level2) == TRUE) {
+        output$x2 <- renderPrint("identical to Level2")
+        output$Level2Table <- renderDataTable(EmptyDT[,-1])
+      }
+      if (nrow(QueryResults()) == 0) {
+        output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+        output$Level2Table <- renderDataTable(QueryResults()[,-1])
+      }
+      if (nrow(QueryResults()) > 0 & nrow(QueryResults()) != nrow(Level2)) {
+        QueryResultsxx <- reactive({
+          withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
+          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
+        })
+        QueryResults <- QueryResultsxx()
+        
+        SelectedRow <- eventReactive(input$UpdateButton, {
+          as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
+        })
+        SelectedRow <- eventReactive(input$DeleteButton, {
+          as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
+        })
+        
+        output$Level2Table <- DT::renderDataTable(
+          datatable(QueryResults[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row")),
+          options = list(
+            autowidth = TRUE,
+            columnDefs = list(list(width = '200px', targets = c(1,2)))
+          )
+          )#added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things, still haven't figured out how to control column widths (it's actually a real struggle)
+          
+          to_index <<- QueryResults[,-c(1,2)]  #this excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
+          
+      }
+    })
         
         observe({
-          SelectedCells <- input$Level3Table_cells_selected
-          if (length(SelectedCells)) {
+          sel <- input$Level2Table_rows_selected
+          if (length(sel)) {
+            Level2IndexValues <- sel
+            Level3Selection <- unlist(to_index[Level2IndexValues, c(2,4,5,6)])
             Level3 <- dbReadTable(pool, 'level3')
-            Level3IndexValues <- ifelse(SelectedCells[1,2]==10, SelectedCells, c(0,0))
-            if (Level3IndexValues[1] == 0){
-              Photos <- dbReadTable(pool, 'photos')
-              PhotosFilterResults <- filter(Photos, ArtefactID=="None")
-              output$PhotosTable <- DT::renderDataTable(
-                datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
-            }
-            else {
-              PhotosSelection <- unlist(Level3[Level3IndexValues[1], 7])
-              Photos <- dbReadTable(pool, 'photos')
-              PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
-              output$PhotosTable <- DT::renderDataTable(
-                datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
-              observeEvent(input$newPhoto, {
-                newPhotoResponses <- reactiveValues(
-                  NewPhoto = input$newPhotoFilename)
-                NewPhotoValue <- as.character(newPhotoResponses$NewPhoto)
-                Photos <- dbReadTable(pool, 'photos') # re-grab in case of duplicates
-                #increment photo ID - get current list, choose highest number, increment, and include in glue_sql statement
-                newPhotoInsert <- glue::glue_sql("INSERT INTO `photos` (`Filename`, `ArtefactID`) VALUES ({NewPhotoValue}, {PhotosSelection})"
-                                                 , .con = pool)
-                dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
-                Photos <- dbReadTable(pool, 'photos')
-                PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
-                output$PhotosTable <- DT::renderDataTable(
-                  datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
-              })
-            }
+            Level3FilterResults <- filter(Level3, Locus==Level3Selection[1] & Period==Level3Selection[2] & Blank==Level3Selection[3] & Modification==Level3Selection[4])
+            output$Level3Table <- DT::renderDataTable(
+              datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE)) #should eliminate 'id' field from results returned
             
+            observe({
+              SelectedCells <- input$Level3Table_cells_selected
+              if (length(SelectedCells)) {
+                Level3 <- dbReadTable(pool, 'level3')
+                Level3IndexValues <- ifelse(SelectedCells[1,2]==10, SelectedCells, c(0,0))
+                if (Level3IndexValues[1] == 0){
+                  Photos <- dbReadTable(pool, 'photos')
+                  PhotosFilterResults <- filter(Photos, ArtefactID=="None")
+                  output$PhotosTable <- DT::renderDataTable(
+                    datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
+                }
+                else {
+                  PhotosSelection <- unlist(Level3[Level3IndexValues[1], 7])
+                  Photos <- dbReadTable(pool, 'photos')
+                  PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
+                  output$PhotosTable <- DT::renderDataTable(
+                    datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
+                  observeEvent(input$newPhoto, {
+                    newPhotoResponses <- reactiveValues(
+                      NewPhoto = input$newPhotoFilename)
+                    NewPhotoValue <- as.character(newPhotoResponses$NewPhoto)
+                    Photos <- dbReadTable(pool, 'photos') # re-grab in case of duplicates
+                    #increment photo ID - get current list, choose highest number, increment, and include in glue_sql statement
+                    newPhotoInsert <- glue::glue_sql("INSERT INTO `photos` (`Filename`, `ArtefactID`) VALUES ({NewPhotoValue}, {PhotosSelection})"
+                                                     , .con = pool)
+                    dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
+                    Photos <- dbReadTable(pool, 'photos')
+                    PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
+                    output$PhotosTable <- DT::renderDataTable(
+                      datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
+                  })
+                }
+                
+              }
+              else {
+                Photos <- dbReadTable(pool, 'photos')
+                PhotosFilterResults <- filter(Photos, ArtefactID=="None")
+                output$PhotosTable <- DT::renderDataTable(
+                  datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
+              }  
+            })
           }
           else {
-            Photos <- dbReadTable(pool, 'photos')
-            PhotosFilterResults <- filter(Photos, ArtefactID=="None")
-            output$PhotosTable <- DT::renderDataTable(
-              datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
-          }  
+            Level3 <- dbReadTable(pool, 'level3')
+            Level3FilterResults <- filter(Level3, Blank=="None")
+            output$Level3Table <- DT::renderDataTable(
+              datatable(Level3FilterResults, selection=list(mode="single", target="cell")))
+          }
+          
+          
         })
-      }
-      else {
+        
+        
+        
+        #tabIndex <- 1:6
+        #observeEvent(input$Level2Table_rows_selected, {
+        #  appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
+        #})
+        #observeEvent(input$removeTab, {
+        #  removeTab("myTabs", target=input$myTabs)
+        #})
+        
+        
+        
+        
+        
+        
+        
+        
+        #compare proxy to determine whether changes have been made, and only allow changes to be saved or force/prompt changes to be saved if changes are identified
+        
+        
+        
+        
+        # 
+        # 
+        # 
+        # observeEvent(input$Level3Table_cell_edit, {
+        #   info = input$Level3Table_cell_edit
+        #   
+        #   GrabbedEntitiesRV <- reactiveValues(
+        #     i = info$row,
+        #     j = info$col = info$col + 1,  # column index offset by 1
+        #     v = info$value,
+        #     l = QueryResults[info$row,2]
+        #   )
+        #   
+        #   GrabbedEntities <- NULL
+        #   Rowx <- GrabbedEntitiesRV$i
+        #   Columnx <- GrabbedEntitiesRV$j
+        #   Valuex <- GrabbedEntitiesRV$v
+        #   Locusx <- GrabbedEntitiesRV$l
+        #   GrabbedEntities$Row <- Rowx
+        #   GrabbedEntities$Column <- Columnx
+        #   GrabbedEntities$Value <- Valuex
+        #   GrabbedEntities$Locus <- Locusx
+        #   
+        #   # if (all(is.na(GrabbedEntities))) {
+        #   #   GrabbedEntities <- data.frame(info, stringsAsFactors = FALSE)
+        #   # } else {
+        #   #   GrabbedEntities <- dplyr::bind_rows(GrabbedEntities, data.frame(info, stringsAsFactors = FALSE))
+        #   # }
+        #   
+        #   Level3Mirror <- reactive({output$Level3Table})
+        #   #determine sameness
+        # })
+        # 
+        # observeEvent(input$level3_save, {
+        #   updateDB(pool = pool, tbl = "level3")
+        #   
+        #   # GrabbedLocus <- NULL
+        #   # GrabbedColumn <- NULL
+        #   # NewValue <- NULL
+        #   # GrabbedEntities$Locus <- GrabbedLocus
+        #   # GrabbedEntities$Column <- GrabbedColumn
+        #   # GrabbedEntities$Value <- NewValue
+        #   # #DataSame <- NULL
+        #   
+        #   Level3 <- dbReadTable(pool, 'level3')
+        #   QueryResults <<- QueryResultsRV()
+        #   output$Level2Table <- DT::renderDataTable(
+        #     datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
+        # })
+        
+        
+        
+        
+        #-----
         Level3 <- dbReadTable(pool, 'level3')
-        Level3FilterResults <- filter(Level3, Blank=="None")
-        output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults, selection=list(mode="single", target="cell")))
-      }
-      
-      
-    })
-    
-    
-    
-    #tabIndex <- 1:6
-    #observeEvent(input$Level2Table_rows_selected, {
-    #  appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
-    #})
-    #observeEvent(input$removeTab, {
-    #  removeTab("myTabs", target=input$myTabs)
-    #})
-    
-    
-    
-    
-    
-    
-    
-    
-    #compare proxy to determine whether changes have been made, and only allow changes to be saved or force/prompt changes to be saved if changes are identified
-    
-    
-    
-    
-    # 
-    # 
-    # 
-    # observeEvent(input$Level3Table_cell_edit, {
-    #   info = input$Level3Table_cell_edit
-    #   
-    #   GrabbedEntitiesRV <- reactiveValues(
-    #     i = info$row,
-    #     j = info$col = info$col + 1,  # column index offset by 1
-    #     v = info$value,
-    #     l = QueryResults[info$row,2]
-    #   )
-    #   
-    #   GrabbedEntities <- NULL
-    #   Rowx <- GrabbedEntitiesRV$i
-    #   Columnx <- GrabbedEntitiesRV$j
-    #   Valuex <- GrabbedEntitiesRV$v
-    #   Locusx <- GrabbedEntitiesRV$l
-    #   GrabbedEntities$Row <- Rowx
-    #   GrabbedEntities$Column <- Columnx
-    #   GrabbedEntities$Value <- Valuex
-    #   GrabbedEntities$Locus <- Locusx
-    #   
-    #   # if (all(is.na(GrabbedEntities))) {
-    #   #   GrabbedEntities <- data.frame(info, stringsAsFactors = FALSE)
-    #   # } else {
-    #   #   GrabbedEntities <- dplyr::bind_rows(GrabbedEntities, data.frame(info, stringsAsFactors = FALSE))
-    #   # }
-    #   
-    #   Level3Mirror <- reactive({output$Level3Table})
-    #   #determine sameness
-    # })
-    # 
-    # observeEvent(input$level3_save, {
-    #   updateDB(pool = pool, tbl = "level3")
-    #   
-    #   # GrabbedLocus <- NULL
-    #   # GrabbedColumn <- NULL
-    #   # NewValue <- NULL
-    #   # GrabbedEntities$Locus <- GrabbedLocus
-    #   # GrabbedEntities$Column <- GrabbedColumn
-    #   # GrabbedEntities$Value <- NewValue
-    #   # #DataSame <- NULL
-    #   
-    #   Level3 <- dbReadTable(pool, 'level3')
-    #   QueryResults <<- QueryResultsRV()
-    #   output$Level2Table <- DT::renderDataTable(
-    #     datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
-    # })
-    
-
-    
-    
-    #-----
-    Level3 <- dbReadTable(pool, 'level3')
-    ArtefactNumbers <- as.character(Level3$ArtefactID)
-    ArtefactNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", ArtefactNumbers))
-    HightestAR <- max(ArtefactNumbers_int)
-    NewAR <-  paste0("AR", HightestAR + 1)
-    if (str_length(NewAR) < 8) {
-      ExtraZeroesAR_quant <- 8 - str_length(NewAR)
-      ExtraZeroesAR <- str_dup("0", ExtraZeroesAR_quant)
-      FixedPrefixAR <- paste0("AR", ExtraZeroesAR)
-      NewAR <- gsub("(^..)", FixedPrefixAR, NewAR)
-    }
-
-    Photos <- dbReadTable(pool, 'photos')
-    PhotoNumbers <- as.character(Photos$PhotoID)
-    PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
-    HightestPH <- max(PhotoNumbers_int)
-    NewPH <-  paste0("PH", HightestPH + 1)
-    if (str_length(NewPH) < 7) {
-      ExtraZeroesPH_quant <- 7 - str_length(NewPH)
-      ExtraZeroesPH <- str_dup("0", ExtraZeroesPH_quant)
-      FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
-      NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
-    }
-
-    Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
-    IllustrationNumbers <- as.character(Illustrations$IllustrationNumber) 
-    IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
-    HightestDR <- max(IllustrationNumbers_int)
-    NewDR <-  paste0("DR", HightestDR + 1) 
-    if (str_length(NewDR) < 6) {
-      ExtraZeroesDR_quant <- 6 - str_length(NewDR)
-      ExtraZeroesDR <- str_dup("0", ExtraZeroesDR_quant)
-      FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
-      NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
-    }
-
-
-
-    
-    
-    
-    
+        ArtefactNumbers <- as.character(Level3$ArtefactID)
+        ArtefactNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", ArtefactNumbers))
+        HightestAR <- max(ArtefactNumbers_int)
+        NewAR <-  paste0("AR", HightestAR + 1)
+        if (str_length(NewAR) < 8) {
+          ExtraZeroesAR_quant <- 8 - str_length(NewAR)
+          ExtraZeroesAR <- str_dup("0", ExtraZeroesAR_quant)
+          FixedPrefixAR <- paste0("AR", ExtraZeroesAR)
+          NewAR <- gsub("(^..)", FixedPrefixAR, NewAR)
+        }
+        
+        Photos <- dbReadTable(pool, 'photos')
+        PhotoNumbers <- as.character(Photos$PhotoID)
+        PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
+        HightestPH <- max(PhotoNumbers_int)
+        NewPH <-  paste0("PH", HightestPH + 1)
+        if (str_length(NewPH) < 7) {
+          ExtraZeroesPH_quant <- 7 - str_length(NewPH)
+          ExtraZeroesPH <- str_dup("0", ExtraZeroesPH_quant)
+          FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
+          NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
+        }
+        
+        Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
+        IllustrationNumbers <- as.character(Illustrations$IllustrationNumber) 
+        IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
+        HightestDR <- max(IllustrationNumbers_int)
+        NewDR <-  paste0("DR", HightestDR + 1) 
+        if (str_length(NewDR) < 6) {
+          ExtraZeroesDR_quant <- 6 - str_length(NewDR)
+          ExtraZeroesDR <- str_dup("0", ExtraZeroesDR_quant)
+          FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
+          NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
+        }
+        
+        
+        
+        
+        
+        
+        
   }
-)
-shinyApp(ui, server)
+    )
+    shinyApp(ui, server)
+    
