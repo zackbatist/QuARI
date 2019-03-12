@@ -219,7 +219,7 @@ shinyApp(
             datatable(QueryResults[,-3], extensions = 'Buttons', filter="top", escape = FALSE,rownames= FALSE, selection=list(mode="single", target="row")), options=list(columns.width=c("30%","30%",NULL, NULL,NULL,NULL,NULL,"50%",NULL,"50%")))  #I'd like to control column width here (and elsewhere) - we're wasting lots of space on columns that don't need it.  Setting options=list(columns.width) is an attempt to do that, but I'm not convinced it's doing anything at all
           #added [,-1] to QueryResults to exclude 'id' column, which I think can only confuse things
           
-          to_index <<- QueryResults
+          to_index <<- QueryResults[,-c(1,2)]
         }
         
         if (nrow(QueryResults) == 0) {
