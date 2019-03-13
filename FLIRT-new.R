@@ -65,13 +65,13 @@ shinyApp(
                                   #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated         
                                   selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),  
                            column(width = 2,
-                                  selectizeInput("Locus", "Locus", choices = allloci$Locus, multiple = FALSE, selected = NULL)),
+                                  selectizeInput("Locus", "Locus", choices = c("", allloci$Locus), multiple = TRUE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("Period", "Period", choices = c(periods$Period), multiple = TRUE, selected = NULL)),
+                                  selectizeInput("Period", "Period", choices = c("", periods$Period), multiple = TRUE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("Blank", "Blank", choices = c(blanks$Blank), multiple = TRUE, selected = NULL)),
+                                  selectizeInput("Blank", "Blank", choices = c("", blanks$Blank), multiple = TRUE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("Modification", "Modification", choices = c(modifications$Modification), multiple = TRUE, selected = NULL)),
+                                  selectizeInput("Modification", "Modification", choices = c("", modifications$Modification), multiple = "", selected = NULL)),
                            column(width = 1,
                                   numericInput("Quantity", "Quantity", "1", min=0)),
                            column(3, verbatimTextOutput("x1")),
@@ -169,60 +169,107 @@ shinyApp(
     #   })
     # })
     #
+
+    #-----QueryLookup-----#
     
     QueryResults <- eventReactive(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
-      filtered <- Level2
-      if (!is.null(input$Blank)) {
-        filtered <- filtered %>% filter(Blank %in% input$Blank)
-      }
-      if (!is.null(input$Modification)) {
-        filtered <- filtered %>% filter(Modification %in% input$Modification)
-      }
-      if (!is.null(input$Period)) {
-        filtered <- filtered %>% filter(Period %in% input$Period)
-      }
+      Period_sel <- ifelse(nchar(input$Period==0), unique(as.vector(Level2$Period)), input$Period)
+      Blank_sel <- ifelse(nchar(input$Blank==0), unique(as.vector(Level2$Blank)), input$Blank)
+      Modification_sel <- ifelse(nchar(input$Modification==0), unique(as.vector(Level2$Modification)), input$Modification)
+      
+      filtered <- filter(Level2, Period %in% Period_sel, Blank %in% Blank_sel, Modification %in% Modification_sel)
       filtered
     })
     
     observe({
       Level2 <- dbReadTable(pool, 'level2')
       EmptyDT <- filter(QueryResults(), LocusType=="blah")
-      if (identical(QueryResults(), Level2) == TRUE) {
-        output$x2 <- renderPrint("identical to Level2")
-        output$Level2Table <- renderDataTable(EmptyDT[,-1])
+      
+      if (nrow(QueryResults()) == nrow(Level2)) {
+        output$Level2Table <- renderDataTable(datatable(EmptyDT))
       }
+      
+      if (length(QueryResults()) & nrow(QueryResults()) != nrow(Level2)) {
+        output$Level2Table <- renderDataTable(datatable(QueryResults()))
+      }
+      
       if (nrow(QueryResults()) == 0) {
-        output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
-        output$Level2Table <- renderDataTable(QueryResults()[,-1])
+        output$Level2Tavle <- renderDataTable(datatable(QueryResults()))
       }
-      if (nrow(QueryResults()) > 0 & nrow(QueryResults()) != nrow(Level2)) {
-        QueryResultsxx <- reactive({
-          withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
-          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
-        })
-        QueryResults <- QueryResultsxx()
-        
-        SelectedRow <- eventReactive(input$UpdateButton, {
-          as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
-        })
-        SelectedRow <- eventReactive(input$DeleteButton, {
-          as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
-        })
-        
-        output$Level2Table <- DT::renderDataTable(
-          datatable(QueryResults[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row")),
-          options = list(
-            autowidth = TRUE,
-            columnDefs = list(list(width = '200px', targets = c(1,2)))
-          )
-        )#added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things, still haven't figured out how to control column widths (it's actually a real struggle)
-        
-        to_index <<- QueryResults[,-c(1,2)]  #this excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
-        
-      }
+      
+      
+      # EmptyDT <- filter(QueryResults(), LocusType=="blah")
+      # 
+      # # if (nrow(QueryResults()) == nrow(Level2)) {
+      # #   output$Level2Table <- renderDataTable(EmptyDT[,-1])
+      # # }
+      # 
+      # if (is.null(QueryResults())) {
+      #   output$Level2Table <- renderDataTable(EmptyDT)
+      # }
+      # 
+      # if (nrow(QueryResults() == 0)) {
+      #   output$Level2Table <- renderDataTable(QueryResults())
+      # }
+      # 
+      # if (nrow(QueryResults()) > 0 & nrow(QueryResults()) != nrow(Level2)) {
+      #   output$Level2Table <- renderDataTable(QueryResults())
+      # }
+      
     })
+        
+    #     QueryResults <- reactive({
+    #       withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
+    #       withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
+    #     })
+    #     
+    #     SelectedRow <- eventReactive(input$UpdateButton, {
+    #       as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
+    #     })
+    #     SelectedRow <- eventReactive(input$DeleteButton, {
+    #       as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
+    #     })
+    #     
+    #     output$Level2Table <- DT::renderDataTable(
+    #       datatable(QueryResults()[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row")),
+    #       options = list(
+    #         autowidth = TRUE,
+    #         columnDefs = list(list(width = '200px', targets = c(1,2)))
+    #       )
+    #     )#added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things, still haven't figured out how to control column widths (it's actually a real struggle)
+    #     
+    #     to_index <<- QueryResults()[,-c(1,2)]  #this excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
+    #     
+    #   }
+    # })
+      
+    #   
+    #   
+    #   renderDataTable(QueryResults())
+    # })
+    # 
+    # observeEvent(input$query, {
+    #   Level2 <- dbReadTable(pool, 'level2')
+    #   output$Level2Table <- renderDataTable({
+    #     Period_sel <- if (nchar(input$Period)==0) unique(as.vector(Level2$Period)) else input$Period
+    #     Blank_sel <- if (nchar(input$Blank)==0) unique(as.vector(Level2$Blank)) else input$Blank
+    #     Modification_sel <- if (nchar(input$Modification)==0) unique(as.vector(Level2$Modification)) else input$Modification
+    #     
+    #     filter(Level2, Period %in% Period_sel, Blank %in% Blank_sel, Modification %in% Modification_sel)
+    # })
+    # })
+    # 
+    # 
+    # 
     
+    
+    
+
+    
+    #-----/QueryLookup-----#
+    
+    #-----TableFilters-----#
     observe({
       sel <- input$Level2Table_rows_selected
       if (length(sel)) {
@@ -265,7 +312,6 @@ shinyApp(
                   datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
               })
             }
-            
           }
           else {
             Photos <- dbReadTable(pool, 'photos')
@@ -285,16 +331,18 @@ shinyApp(
       
     })
     
+    #-----/TableFilters-----#
     
     
-    #tabIndex <- 1:6
-    #observeEvent(input$Level2Table_rows_selected, {
-    #  appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
-    #})
-    #observeEvent(input$removeTab, {
-    #  removeTab("myTabs", target=input$myTabs)
-    #})
-    
+    # tabIndex <- 1:6
+    # observeEvent(input$Level3Table_cells_selected, {
+    #   showTab(inputId = "MyTabs", target = "Photos")
+    #   appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
+    # })
+    # observeEvent(input$removeTab, {
+    #   removeTab("myTabs", target=input$myTabs)
+    # })
+    # 
     
     
     
