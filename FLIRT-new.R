@@ -49,6 +49,8 @@ modifications <- dbReadTable(pool, 'modifications_excavation')
 modifications
 periods <- dbReadTable(pool, 'dating')
 periods
+activitylog <- dbReadTable(pool, 'activitylog')
+activitylog
 
 shinyApp(
   ui <- fluidPage(
@@ -57,8 +59,6 @@ shinyApp(
     )),
     tabsetPanel(id = "OverallTabs", type = "tabs",
                 tabPanel("Query",
-                         
-                         
                          titlePanel("SNAP Lithics Processing"),
                          fluidRow(
                            column(width = 2,
@@ -80,9 +80,8 @@ shinyApp(
                          actionButton("query", "Query"),
                          hr(),
                          tabsetPanel(id = "myTabs", type = "tabs",
-                                     tabPanel("All Level 2",
-                                              DT::dataTableOutput("Level2Table"),
-                                              uiOutput("popup")
+                                     tabPanel("Level 2 Selection",
+                                              DT::dataTableOutput("Level2Table")
                                      ),
                                      tabPanel("Level 3 Selection",
                                               DT::dataTableOutput("Level3Table")
@@ -100,19 +99,19 @@ shinyApp(
                          )
                 ),
                 
-                tabPanel("New Records",
+                tabPanel("Create Records",
                          titlePanel("Create new records"),
                          fluidRow(
                            column(width = 2,
                                   selectInput("NewLocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
                            column(width = 2,
-                                  selectInput("NewLocus", "Locus", choices = allloci$Locus, multiple = FALSE, selected = NULL)),
+                                  selectizeInput("NewLocus", "Locus", choices = allloci$Locus, multiple = FALSE, selected = NULL)),
                            column(width = 2,
-                                  selectInput("NewPeriod", "Period", choices = c(periods$Period), multiple = TRUE, selected = NULL)),
+                                  selectizeInput("NewPeriod", "Period", choices = c(periods$Period), multiple = FALSE, selected = NULL)),
                            column(width = 2,
-                                  selectInput("NewBlank", "Blank", choices = c(blanks$Blank), multiple = TRUE, selected = NULL)),
+                                  selectizeInput("NewBlank", "Blank", choices = c(blanks$Blank), multiple = FALSE, selected = NULL)),
                            column(width = 2,
-                                  selectInput("NewModification", "Modification", choices = c(modifications$Modification), multiple = TRUE, selected = NULL)),
+                                  selectizeInput("NewModification", "Modification", choices = c(modifications$Modification), multiple = FALSE, selected = NULL)),
                            column(width = 1,
                                   numericInput("NewQuantity", "Quantity", "1"))
                          ),
@@ -120,15 +119,18 @@ shinyApp(
                          actionButton("toggleNewBlankMod", "New Blank or Modification"),
                          uiOutput("newBlankMod"),
                          hr(),
-                         tabsetPanel(id = "myTabs", type = "tabs",
+                         tabsetPanel(id = "myTabsx", type = "tabs",
                                      tabPanel("All Level 2",
-                                              DT::dataTableOutput("Level2Table"),
-                                              uiOutput("popup")
+                                              DT::dataTableOutput("NewLevel2Table")
                                      ),
-                                     tabPanel("Level 3 Selection",
-                                              DT::dataTableOutput("Level3Table")
+                                     tabPanel("All Level 3",
+                                              DT::dataTableOutput("NewLevel3Table")
                                      )
                          )
+                ),
+                tabPanel("Activity Log",
+                         titlePanel("Activity Log"),
+                         DT::dataTableOutput("ActivityLogDisplay")
                 )
     )
   ),
@@ -166,14 +168,7 @@ shinyApp(
     #   updateSelectInput(session, inputId = "Modification", choices=c(FilteredSelections$Modification))
     #   })
     # })
-    # 
-    
-    #store content of the input fields
-    responses <- data.frame()
-    singleResponse <- reactive(
-      data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
-    output$x1 <- renderPrint(cat(input$Period))
-    #these lines (above) exist only for testing purposes I think
+    #
     
     QueryResults <- eventReactive(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
@@ -428,8 +423,19 @@ shinyApp(
             #write the context to the level2 table
             writeXFind <- dbWriteTable(pool, "level2", XFindSubset, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
             writeXFind
+            message1 <- paste0("XFind ", LocusValue()," added as the first and only record of [",XFindContext,"/",input$NewPeriod,"/",input$NewBlank,"/",input$NewModification,"] configuration thus far.")
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message1,
+                                          Timestamp = as.character(Sys.time()),
+                                          stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
             
-            #render data table
+            Level2 <- dbReadTable(pool, 'level2')
+            output$NewLevel2Table <- DT::renderDataTable(
+              datatable(Level2, selection=list(mode="single", target="row")))
             
           }
           
@@ -445,8 +451,19 @@ shinyApp(
                                                 ", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), XFindUpdateQuery1))
             
+            message2 <- paste0("XFind ", LocusValue()," added to existing batch of ",XFindSubset$Quantity," records with configuration [",XFindContext,"/",input$NewPeriod,"/",input$NewBlank,"/",input$NewModification,"]. There are now ",QuantityPlusOne," records of that configuration.")
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message2,
+                                          Timestamp = as.character(Sys.time()),
+                                          stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
             
-            #render datatable
+            Level2 <- dbReadTable(pool, 'level2')
+            output$NewLevel2Table <- DT::renderDataTable(
+              datatable(Level2, selection=list(mode="single", target="row")))
             
           }
         })
@@ -464,18 +481,15 @@ shinyApp(
             #store field values to a responses table after the submit button is clicked
             values <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
             
-            #rename columns in singleResponse_df
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
+            NewRecord <- values$singleResponse_df()
             
-            NewRecord <- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
+            colnames(NewRecord)[colnames(NewRecord) == 'input.NewLocus'] <- 'Locus'
+            colnames(NewRecord)[colnames(NewRecord) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(NewRecord)[colnames(NewRecord) == 'input.NewPeriod'] <- 'Period'
+            colnames(NewRecord)[colnames(NewRecord) == 'input.NewBlank'] <- 'Blank'
+            colnames(NewRecord)[colnames(NewRecord) == 'input.NewModification'] <- 'Modification'
+            colnames(NewRecord)[colnames(NewRecord) == 'input.NewQuantity'] <- 'Quantity'
             
-            #write the field values to the database as a new record in the level2 table after the submit button is clicked
-            #this step, as well as the following dbReadTable command, are very important since they allow the database to allocate an id to the row, which is crucial for updating modified cells
             write_level2 <- dbWriteTable(pool, "level2", NewRecord, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
             write_level2
             
@@ -485,10 +499,11 @@ shinyApp(
             })
             EquivRecordSubset <<- EquivRecordFilter()
             
-            
             #####!!!! It gets stuck in a loop here, fails to recognize that now there are equivalent records and that this branch of the if/else function should come to an end
             
-            #render datatable
+            Level2 <- dbReadTable(pool, 'level2')
+            output$NewLevel2Table <- DT::renderDataTable(
+              datatable(Level2, selection=list(mode="single", target="row")))
             
           }
           
@@ -497,14 +512,15 @@ shinyApp(
             #store field values to a responses table after the submit button is clicked
             valuesx <- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
             
-            #rename columns in singleResponse_df
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <- 'Locus'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocusType'] <- 'LocusType'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPeriod'] <- 'Period'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewBlank'] <- 'Blank'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewModification'] <- 'Modification'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewQuantity'] <- 'Quantity'
-            toAdd <- as.data.frame(valuesx$singleResponse_dfx)
+            NewRecordx <- valuesx$singleResponse_dfx()
+            
+            colnames(NewRecordx)[colnames(NewRecordx) == 'input.NewLocus'] <- 'Locus'
+            colnames(NewRecordx)[colnames(NewRecordx) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(NewRecordx)[colnames(NewRecordx) == 'input.NewPeriod'] <- 'Period'
+            colnames(NewRecordx)[colnames(NewRecordx) == 'input.NewBlank'] <- 'Blank'
+            colnames(NewRecordx)[colnames(NewRecordx) == 'input.NewModification'] <- 'Modification'
+            colnames(NewRecordx)[colnames(NewRecordx) == 'input.NewQuantity'] <- 'Quantity'
+            toAdd <- NewRecordx
             
             EquivRecordQuantityUpdated <- EquivRecordSubset$Quantity + toAdd$Quantity
             EquivRecordUpdateQuery1 <- glue::glue_sql("UPDATE `level2` SET
@@ -516,7 +532,9 @@ shinyApp(
                                                       ", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), EquivRecordUpdateQuery1))
             
-            #render table
+            Level2 <- dbReadTable(pool, 'level2')
+            output$NewLevel2Table <- DT::renderDataTable(
+              datatable(Level2, selection=list(mode="single", target="row")))
             
           }
         })
@@ -551,12 +569,21 @@ shinyApp(
       write_level3 <- dbWriteTable(pool, "level3", singleRow_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
       write_level3
       
-      #render table
+      Level3 <- dbReadTable(pool, 'level3')
+      output$NewLevel3Table <- DT::renderDataTable(
+        datatable(Level3, selection=list(mode="single", target="row")))
       
     })
     
     #-----/NewRecords-----#
     
+    
+    #-----ActivityLog-----#
+    activitylog <- dbReadTable(pool, 'activitylog')
+    activitylog
+    output$ActivityLogDisplay <- renderDataTable(datatable(activitylog, rownames = FALSE, selection=list(mode="single", target="row")))
+
+    #-----/ActivityLog-----#
     
   }
 )
