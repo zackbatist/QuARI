@@ -71,7 +71,7 @@ shinyApp(
                            column(width = 2,
                                   selectizeInput("Blank", "Blank", choices = c("", blanks$Blank), multiple = TRUE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("Modification", "Modification", choices = c("", modifications$Modification), multiple = "", selected = NULL)),
+                                  selectizeInput("Modification", "Modification", choices = c("", modifications$Modification), multiple = TRUE, selected = "")),
                            column(width = 1,
                                   numericInput("Quantity", "Quantity", "1", min=0)),
                            column(3, verbatimTextOutput("x1")),
@@ -105,13 +105,13 @@ shinyApp(
                            column(width = 2,
                                   selectInput("NewLocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
                            column(width = 2,
-                                  selectizeInput("NewLocus", "Locus", choices = allloci$Locus, multiple = FALSE, selected = NULL)),
+                                  selectizeInput("NewLocus", "Locus", choices = c("", allloci$Locus), multiple = FALSE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("NewPeriod", "Period", choices = c(periods$Period), multiple = FALSE, selected = NULL)),
+                                  selectizeInput("NewPeriod", "Period", choices = c("", periods$Period), multiple = FALSE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("NewBlank", "Blank", choices = c(blanks$Blank), multiple = FALSE, selected = NULL)),
+                                  selectizeInput("NewBlank", "Blank", choices = c("", blanks$Blank), multiple = FALSE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("NewModification", "Modification", choices = c(modifications$Modification), multiple = FALSE, selected = NULL)),
+                                  selectizeInput("NewModification", "Modification", choices = c("", modifications$Modification), multiple = FALSE, selected = "")),
                            column(width = 1,
                                   numericInput("NewQuantity", "Quantity", "1"))
                          ),
@@ -479,33 +479,54 @@ shinyApp(
         #filter for equivalent lociXblankXmodXperiod combinations
         EquivRecord <- dbReadTable(pool, 'level2')
         EquivRecordFilter <- reactive({
-          select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
+          select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification)
         })
+        EquivRecordFilter_df <- EquivRecordFilter()
         observe({
-          EquivRecordSubset <<- EquivRecordFilter()
-          if (nrow(EquivRecordSubset) == 0) {
+          if (is.null(EquivRecordFilter_df)) {
             #store field values to a responses table after the submit button is clicked
-            values <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
             
-            NewRecord <- values$singleResponse_df()
+            NewRecord <- reactiveValues(NewRecordValues = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
             
-            colnames(NewRecord)[colnames(NewRecord) == 'input.NewLocus'] <- 'Locus'
-            colnames(NewRecord)[colnames(NewRecord) == 'input.NewLocusType'] <- 'LocusType'
-            colnames(NewRecord)[colnames(NewRecord) == 'input.NewPeriod'] <- 'Period'
-            colnames(NewRecord)[colnames(NewRecord) == 'input.NewBlank'] <- 'Blank'
-            colnames(NewRecord)[colnames(NewRecord) == 'input.NewModification'] <- 'Modification'
-            colnames(NewRecord)[colnames(NewRecord) == 'input.NewQuantity'] <- 'Quantity'
+            #NewRecord_df <<- NewRecord()
             
-            write_level2 <- dbWriteTable(pool, "level2", NewRecord, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            write_level2
+            colnames(NewRecord$NewRecordValues())[colnames(NewRecord$NewRecordValues()) == 'input.NewLocus'] <- 'Locus'
+            colnames(NewRecord$NewRecordValues())[colnames(NewRecord$NewRecordValues()) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(NewRecord$NewRecordValues())[colnames(NewRecord$NewRecordValues()) == 'input.NewPeriod'] <- 'Period'
+            colnames(NewRecord$NewRecordValues())[colnames(NewRecord$NewRecordValues()) == 'input.NewBlank'] <- 'Blank'
+            colnames(NewRecord$NewRecordValues())[colnames(NewRecord$NewRecordValues()) == 'input.NewModification'] <- 'Modification'
+            colnames(NewRecord$NewRecordValues())[colnames(NewRecord$NewRecordValues()) == 'input.NewQuantity'] <- 'Quantity'
             
-            EquivRecord <- dbReadTable(pool, 'level2')
-            EquivRecordFilter <- reactive({
-              select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
+            # colnames(NewRecord())[colnames(NewRecord()) == 'input.NewLocus'] <- 'Locus'
+            # colnames(NewRecord())[colnames(NewRecord()) == 'input.NewLocusType'] <- 'LocusType'
+            # colnames(NewRecord())[colnames(NewRecord()) == 'input.NewPeriod'] <- 'Period'
+            # colnames(NewRecord())[colnames(NewRecord()) == 'input.NewBlank'] <- 'Blank'
+            # colnames(NewRecord())[colnames(NewRecord()) == 'input.NewModification'] <- 'Modification'
+            # colnames(NewRecord())[colnames(NewRecord()) == 'input.NewQuantity'] <- 'Quantity'
+            
+#             write_level2 <- glue::glue_sql("INSERT INTO `level2` (`LocusType`, `Locus`, `Period`, `Blank`, `Modification`, `Quantity`)
+# VALUES ({NewRecord()$LocusType}, {NewRecord()$Locus}, {NewRecord()$Period}, {NewRecord()$Blank}, {NewRecord()$Modification}, {NewRecord()$Quantity})
+#                                                 ", .con = pool)
+#             dbExecute(pool, sqlInterpolate(ANSI(), write_level2))
+
+            # colnames(NewRecord_df)[colnames(NewRecord_df) == 'input.NewLocus'] <- 'Locus'
+            # colnames(NewRecord_df)[colnames(NewRecord_df) == 'input.NewLocusType'] <- 'LocusType'
+            # colnames(NewRecord_df)[colnames(NewRecord_df) == 'input.NewPeriod'] <- 'Period'
+            # colnames(NewRecord_df)[colnames(NewRecord_df) == 'input.NewBlank'] <- 'Blank'
+            # colnames(NewRecord_df)[colnames(NewRecord_df) == 'input.NewModification'] <- 'Modification'
+            # colnames(NewRecord_df)[colnames(NewRecord_df) == 'input.NewQuantity'] <- 'Quantity'
+            
+             write_level2 <- dbWriteTable(pool, "level2", NewRecord$NewRecordValues(), row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+             write_level2
+            
+            EquivRecord <<- dbReadTable(pool, 'level2')
+            UpdatedEquivRecordFilter <- reactive({
+              select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification)
             })
-            EquivRecordSubset <<- EquivRecordFilter()
             
-            #####!!!! It gets stuck in a loop here, fails to recognize that now there are equivalent records and that this branch of the if/else function should come to an end
+            UpdatedEquivRecordFilter_df <- UpdatedEquivRecordFilter()
+            EquivRecordFilter_df <<- UpdatedEquivRecordFilter_df
+            
             
             Level2 <- dbReadTable(pool, 'level2')
             output$NewLevel2Table <- DT::renderDataTable(
