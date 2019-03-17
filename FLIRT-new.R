@@ -14,11 +14,16 @@ library(shinyjs)
 library(stringr)
 library(shinyBS)
 library(shinydashboard)
+library(data.table)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
 #need to set working directory to where keys.R is
-source("keys.R")
-
+#source("keys.R")
+current <- getwd()
+#need to set working directory to where keys.R is
+setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
+source("keys_alt.R")
+#setwd(current)
 
 #define pool handler by pool on global level
 pool <- pool::dbPool(drv = RMariaDB::MariaDB(),
@@ -68,8 +73,8 @@ shinyApp(
              selectizeInput("Blank", "Blank", choices = c(blanks$Blank), multiple = TRUE, selected = NULL)),
       column(width = 2,
              selectizeInput("Modification", "Modification", choices = c(modifications$Modification), multiple = TRUE, selected = NULL)),
-      column(width = 1,
-             numericInput("Quantity", "Quantity", "1", min=0)),
+      # column(width = 1,
+      #        numericInput("Quantity", "Quantity", "1", min=0)),  #I think we can remove this - no-one is going to want to filter by quantity 
       column(3, verbatimTextOutput("x1")),
       column(3, verbatimTextOutput("x2"))
     ),
@@ -107,7 +112,7 @@ shinyApp(
   
   server <- function(input, output, session){
     #define the fields we want to save from the form
-    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity")
+    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification") #, "Quantity")
     
     # 
     # observe({
@@ -142,48 +147,66 @@ shinyApp(
     
     
     #store content of the input fields
-    responses <- data.frame()
-    singleResponse <- reactive(
-      data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
-    output$x1 <- renderPrint(cat(input$Period))
+    # responses <- data.frame()
+    # singleResponse <- reactive(
+    #   data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification)) #, input$Quantity))
+    # output$x1 <- renderPrint(cat(input$Period))
     #these lines (above) exist only for testing purposes I think
     
     
     #this operates without needing to press the query a second time, which I find troubling for some reason
+    #I think this is because once it's active the reactive() just keeps updating, and I suspect the answer is here: https://yihui.shinyapps.io/DT-proxy/  and/or here: https://stackoverflow.com/questions/45344812/how-to-efficiently-handle-data-with-multiple-filters-in-a-shiny-app
+    
     observeEvent(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
-      QueryResultsRV <- reactive({
-        filtered <- Level2
-        if (!is.null(input$Blank)) {
-          filtered <- filtered %>% filter(Blank %in% input$Blank)
-        }
-        if (!is.null(input$Modification)) {
-          filtered <- filtered %>% filter(Modification %in% input$Modification)
-        }
-        if (!is.null(input$Period)) {
-          filtered <- filtered %>% filter(Period %in% input$Period)
-        }
-        filtered
+      setDT(Level2)
+      
+      filter1_rows <- reactive({
+        Level2[Period %in% input$Period,   which = TRUE]
       })
       
+      filter2_rows <- reactive({
+        Level2[Blank %in% input$Blank, which = TRUE]
+      })
+      
+      filter3_rows <- reactive({
+        Level2[Modification %in% input$Modification,  which = TRUE]
+      })
+      
+      QueryResults_temp <- renderDataTable({
+        final_rows <- intersect(filter1_rows(), filter2_rows())
+        final_rows <- intersect(final_rows, filter3_rows())
+        Level2[final_rows]
+      })
+    })
+      
+    temp_table <- observe ({ifelse (!is.null (QueryResults_temp), QueryResults_temp, dbReadTable(pool, 'level2'))})
+    
+    QueryResultsRV <- reactive({
+      temp_table
+    })
 
       #the logic doesn't quite work here - I think we want to return nothing if no selection at all is made, but once any one thing is selected then the return everything and filter that as requested.  Currently that's not quite happening - I think that any time nothing is selected in a filter we get nothing?
+      #there's also something odd about sequencing of queries - if you first select a period, then you can keep refining, but if you try to back up (broadening the query) you don't get a response 
+          #I think that queries are sequential - so a second query is applied to the results of the first; maybe we need to add a button to wipe the slate clean (set QueryResults <- Level2 again) and/or maybe we just need to revisit how 
       #we need to create an error message using renderPrint that notifies the user that no matching values were found
       
-      observe({
-        if (identical(QueryResultsRV(), Level2) == T) {
-          QueryResults <<- filter(Level2, LocusType=="none")    # if filtered == Level2, return empty and return error message
-        }
-        else {
-          QueryResults <<- QueryResultsRV()
-        }
-
+      observe({                             #is there a problem with this being an (observe)?  i.e. it doesn't update when QueryResults RV changes?
+          QueryResults <- QueryResultsRV()
         
-        #if there are no results, create the option to create a record with the values in the input fields
-        if (nrow(QueryResults) == 0) {
+        #if there are no results, should create the option to create a record with the values in the input fields
+        
+          #in case the query has no results:   
+        if (nrow(QueryResults) == 0) {  
           output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
         }
+          
+          #in case no query has been made (request is for whole dataset):
+        if (nrow(QueryResults) > 0 & nrow(QueryResults) == nrow(Level2)) {
+          output$x2 <- renderPrint("How can you have any pudding if you don't eat your meat?")
+        }
         
+          #in case query returns results:
         if (nrow(QueryResults) > 0 & nrow(QueryResults) != nrow(Level2)) {
           
           #-------
@@ -233,13 +256,9 @@ shinyApp(
           to_index <<- QueryResults[,-c(1,2)]  #this excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
         }
         
-        if (nrow(QueryResults) == 0) {
-          output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
-        }
-        
-        
       })
     })
+    
     
     observe({
       sel <- input$Level2Table_rows_selected
