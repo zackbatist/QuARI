@@ -17,7 +17,10 @@ library(shinydashboard)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
 #need to set working directory to where keys.R is
+# current <- getwd()
+# setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
 source("keys.R")
+# setwd(current) #when done
 
 
 #define pool handler by pool on global level
@@ -175,6 +178,9 @@ shinyApp(
     QueryResults <- eventReactive(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
       filtered <- Level2
+      if (!is.null(input$Locus)) {
+        filtered <- filtered %>% filter(Locus %in% input$Locus)
+      }
       if (!is.null(input$Blank)) {
         filtered <- filtered %>% filter(Blank %in% input$Blank)
       }
@@ -204,7 +210,7 @@ shinyApp(
       if (nrow(QueryResults()) > 0 & nrow(QueryResults()) != nrow(Level2)) {
         QueryResultsxx <- reactive({
           withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
-          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
+          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton)) #I'm not sure what's happening here - these are to modify the query itself (update/delete), or to modify the results of the query?
         })
         QueryResults <- QueryResultsxx()
         
@@ -221,7 +227,7 @@ shinyApp(
             columnDefs = list(list(width = '200px', targets = c(1,2)))
           )
         )#added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things, still haven't figured out how to control column widths (it's actually a real struggle)
-        
+        to_index <<- QueryResults[,-c(1,2)] #restored this because it's needed for Level3 work below; it excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
       }
     })
     
