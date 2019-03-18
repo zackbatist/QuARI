@@ -17,10 +17,10 @@ library(shinydashboard)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
 #need to set working directory to where keys.R is
-current <- getwd()
-setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
-source("keys_alt.R")
-setwd(current) #when done
+# current <- getwd()
+# setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
+source("keys.R")
+# setwd(current) #when done
 
 
 #define pool handler by pool on global level
@@ -227,7 +227,7 @@ shinyApp(
             columnDefs = list(list(width = '200px', targets = c(1,2)))
           )
         )#added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things, still haven't figured out how to control column widths (it's actually a real struggle)
-        
+        to_index <<- QueryResults[,-c(1,2)] #restored this because it's needed for Level3 work below; it excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
       }
     })
     
