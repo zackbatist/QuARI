@@ -17,7 +17,10 @@ library(shinydashboard)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
 #need to set working directory to where keys.R is
-source("keys.R")
+current <- getwd()
+setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
+source("keys_alt.R")
+setwd(current) #when done
 
 
 #define pool handler by pool on global level
@@ -175,6 +178,9 @@ shinyApp(
     QueryResults <- eventReactive(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
       filtered <- Level2
+      if (!is.null(input$Locus)) {
+        filtered <- filtered %>% filter(Locus %in% input$Locus)
+      }
       if (!is.null(input$Blank)) {
         filtered <- filtered %>% filter(Blank %in% input$Blank)
       }
@@ -204,7 +210,7 @@ shinyApp(
       if (nrow(QueryResults()) > 0 & nrow(QueryResults()) != nrow(Level2)) {
         QueryResultsxx <- reactive({
           withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
-          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
+          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton)) #I'm not sure what's happening here - these are to modify the query itself (update/delete), or to modify the results of the query?
         })
         QueryResults <- QueryResultsxx()
         
