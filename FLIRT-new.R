@@ -19,7 +19,7 @@ library(shinydashboard)
 #need to set working directory to where keys.R is
 # current <- getwd()
 # setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
-source("keys.R")
+source("keys_alt.R")
 # setwd(current) #when done
 
 
@@ -140,7 +140,7 @@ shinyApp(
   
   server <- function(input, output, session){
     #define the fields we want to save from the form
-    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity")
+    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity") #I think probably 'Quantity' should appear only on the data input tab, and not on the retrieval one?
     
     # 
     # observe({
@@ -214,7 +214,7 @@ shinyApp(
         })
         QueryResults <- QueryResultsxx()
         
-        SelectedRow <- eventReactive(input$UpdateButton, {
+        SelectedRow <- eventReactive(input$UpdateButton, {  #what happens to this object ('SelectedRow') created here?
           as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
         })
         SelectedRow <- eventReactive(input$DeleteButton, {
@@ -420,7 +420,7 @@ shinyApp(
           z <- toString(input$NewLocus)
           return(z)
         })
-        XFindContext <- substr(LocusValue(), 1, 4)
+        XFindContext <- substr(LocusValue(), 1, 4) #this will only work if we can rely on the XFind IDs being *always* in the format 0006X001. Is that a reasonable expectation?  If not could instead use regex to split the input at the X.
         XFindNumber <- substr(LocusValue(), 5, 8)
         
         #filter for contexts from which the xfind derives
@@ -482,7 +482,7 @@ shinyApp(
       }
       
       else {
-        #filter for equivalent lociXblankXmodXperiod combinations
+        #if input$NewLocusType is anything other than an xfind, filter for equivalent lociXblankXmodXperiod combinations
         observe({
           if (exists(state) & length(state)) {
             EquivRecord <- dbReadTable(pool, 'level2')
