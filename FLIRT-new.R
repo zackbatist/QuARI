@@ -212,22 +212,53 @@ shinyApp(
           withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
           withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton)) #I'm not sure what's happening here - these are to modify the query itself (update/delete), or to modify the results of the query?
         })
-        QueryResults <- QueryResultsxx()
+        QueryResults <<- QueryResultsxx()
         
-        SelectedRow <- eventReactive(input$UpdateButton, {
+        SelectedRowUpdate <- eventReactive(input$UpdateButton, {
           as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
         })
-        SelectedRow <- eventReactive(input$DeleteButton, {
+        SelectedRowDelete <- eventReactive(input$DeleteButton, {
           as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
         })
         output$Level2Table <- DT::renderDataTable(
-          datatable(QueryResults[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row")),
+          datatable(QueryResults[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row"), editable = TRUE),
           options = list(
             autowidth = TRUE,
             columnDefs = list(list(width = '200px', targets = c(1,2)))
           )
         )#added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things, still haven't figured out how to control column widths (it's actually a real struggle)
         to_index <<- QueryResults[,-c(1,2)] #restored this because it's needed for Level3 work below; it excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
+        
+        observe({
+          if (length(SelectedRowUpdate())) {
+            Level2UpdateSelection <<- unlist(QueryResults[SelectedRowUpdate(), c(4,6,7,8,9)])
+            Level2UpdateSelection_df <<- as.data.frame(Level2UpdateSelection, stringsAsFactors = FALSE)
+            if (!identical(QueryResults, Level2UpdateSelection_df)) {
+              NewValues <<- data.frame(Locus = Level2UpdateSelection[1], Period = Level2UpdateSelection[2], Blank = Level2UpdateSelection[3], Modification = Level2UpdateSelection[4], Quantity = Level2UpdateSelection[5], stringsAsFactors = FALSE)
+              OldValues <<- QueryResults[SelectedRowUpdate(),]
+              UpdateButtonQuery <- glue::glue_sql("UPDATE `level2` SET `Locus` = {NewValues$Locus},
+                                                   `Period` = {NewValues$Period},
+                                                   `Blank` = {NewValues$Blank},
+                                                   `Modification` = {NewValues$Modification},
+                                                   `Quantity` = {NewValues$Quantity}
+                                                   WHERE `Locus` = {OldValues$Locus}
+                                                   AND `Period` = {OldValues$Period}
+                                                   AND `Blank` = {OldValues$Blank}
+                                                   AND `Modification` = {OldValues$Modification}
+                                                   AND `Quantity` = {OldValues$Quantity}
+                                                                 ", .con = pool)
+              dbExecute(pool, sqlInterpolate(ANSI(), UpdateButtonQuery))
+              UpdatedLevel2 <- dbReadTable(pool, 'level2')
+              output$Level2Table <- DT::renderDataTable(
+                datatable(UpdatedLevel2))
+            }
+            else {
+              output$x2 <- renderPrint("blah")
+            }
+          }
+          else {}
+        })
+        
       }
     })
     
