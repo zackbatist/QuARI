@@ -432,7 +432,7 @@ shinyApp(
           XFindSubset <<- XFindFilter()
           if (nrow(XFindSubset) == 0) {
             #if no equivalent record exists:
-            XFindNew <- data.frame(Period=input$NewPeriod, Blank=input$NewBlank, Modification=input$NewModification, LocusType="Context", Locus=XFindContext, Quantity=input$Quantity)
+            XFindNew <- data.frame(Period=input$NewPeriod, Blank=input$NewBlank, Modification=input$NewModification, LocusType="Context", Locus=XFindContext, Quantity=input$NewQuantity)
             #write the context to the level2 table
             writeXFind <- dbWriteTable(pool, "level2", XFindNew, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE) #but this tries to write XFindSubset, which must be empty given the condition of this if(); instead should be writing a new row (I've built this as XFindNew, above) - but something is wrong with my SQL syntax below 
             XFindNew_add <- glue::glue_sql("INSERT INTO `level2` (`Quantity`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({XFindNew$Quantity}, {XFindNew$Locus}, {XFindNew$Period}, {XFindNew$Blank}, {XFindNew$Modification})"
