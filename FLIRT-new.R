@@ -436,7 +436,7 @@ shinyApp(
             #write the context to the level2 table
             writeXFind <- dbWriteTable(pool, "level2", XFindNew, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE) #but this tries to write XFindSubset, which must be empty given the condition of this if(); instead should be writing a new row (I've built this as XFindNew, above) - but something is wrong with my SQL syntax below 
             XFindNew_add <- glue::glue_sql("INSERT INTO `level2` (`Quantity`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({XFindNew$Quantity}, {XFindNew$Locus}, {XFindNew$Period}, {XFindNew$Blank}, {XFindNew$Modification})"
-                           , .con = pool)
+                           , .con = pool) #this is throwing an SQL error, I think
             dbExecute(pool, sqlInterpolate(ANSI(), XFindNew_add))
             writeXFind #not sure this is necessary
             message1 <- paste0("XFind ", LocusValue()," added as the first and only record of [",XFindContext,"/",input$NewPeriod,"/",input$NewBlank,"/",input$NewModification,"] configuration thus far.")
