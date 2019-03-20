@@ -19,7 +19,7 @@ library(shinydashboard)
 #need to set working directory to where keys.R is
 # current <- getwd()
 # setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
-source("keys_alt.R") 
+source("keys.R") 
 # setwd(current) #when done
 
 
