@@ -19,7 +19,7 @@ library(shinydashboard)
 #need to set working directory to where keys.R is
 # current <- getwd()
 # setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
-source("keys.R")
+source("keys_alt.R")
 # setwd(current) #when done
 
 
@@ -140,7 +140,7 @@ shinyApp(
   
   server <- function(input, output, session){
     #define the fields we want to save from the form
-    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity")
+    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity") #I think probably 'Quantity' should appear only on the data input tab, and not on the retrieval one?
     
     # 
     # observe({
@@ -214,6 +214,7 @@ shinyApp(
         })
         QueryResults <<- QueryResultsxx()
         
+
         SelectedRowUpdate <- eventReactive(input$UpdateButton, {
           as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
         })
@@ -451,7 +452,7 @@ shinyApp(
           z <- toString(input$NewLocus)
           return(z)
         })
-        XFindContext <- substr(LocusValue(), 1, 4)
+        XFindContext <- substr(LocusValue(), 1, 4) #this will only work if we can rely on the XFind IDs being *always* in the format 0006X001. Is that a reasonable expectation?  If not could instead use regex to split the input at the X.
         XFindNumber <- substr(LocusValue(), 5, 8)
         
         #filter for contexts from which the xfind derives
@@ -463,9 +464,13 @@ shinyApp(
           XFindSubset <<- XFindFilter()
           if (nrow(XFindSubset) == 0) {
             #if no equivalent record exists:
+            XFindNew <- data.frame(Period=input$NewPeriod, Blank=input$NewBlank, Modification=input$NewModification, LocusType="Context", Locus=XFindContext, Quantity=input$NewQuantity)
             #write the context to the level2 table
-            writeXFind <- dbWriteTable(pool, "level2", XFindSubset, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            writeXFind
+            writeXFind <- dbWriteTable(pool, "level2", XFindNew, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE) #but this tries to write XFindSubset, which must be empty given the condition of this if(); instead should be writing a new row (I've built this as XFindNew, above) - but something is wrong with my SQL syntax below 
+            XFindNew_add <- glue::glue_sql("INSERT INTO `level2` (`Quantity`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({XFindNew$Quantity}, {XFindNew$Locus}, {XFindNew$Period}, {XFindNew$Blank}, {XFindNew$Modification})"
+                           , .con = pool)
+            dbExecute(pool, sqlInterpolate(ANSI(), XFindNew_add))
+            writeXFind #not sure this is necessary
             message1 <- paste0("XFind ", LocusValue()," added as the first and only record of [",XFindContext,"/",input$NewPeriod,"/",input$NewBlank,"/",input$NewModification,"] configuration thus far.")
             activitylog <- dbReadTable(pool, 'activitylog')
             activitylog <- data.frame(Log = message1,
@@ -479,7 +484,6 @@ shinyApp(
             Level2 <- dbReadTable(pool, 'level2')
             output$NewLevel2Table <- DT::renderDataTable(
               datatable(Level2, selection=list(mode="single", target="row")))
-            
           }
           
           else {
@@ -513,7 +517,7 @@ shinyApp(
       }
       
       else {
-        #filter for equivalent lociXblankXmodXperiod combinations
+        #if input$NewLocusType is anything other than an xfind, filter for equivalent lociXblankXmodXperiod combinations
         observe({
           if (exists(state) & length(state)) {
             EquivRecord <- dbReadTable(pool, 'level2')
