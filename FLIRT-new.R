@@ -214,7 +214,7 @@ shinyApp(
         })
         QueryResults <<- QueryResultsxx()
         
-
+        
         SelectedRowUpdate <- eventReactive(input$UpdateButton, {
           as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
         })
@@ -238,16 +238,16 @@ shinyApp(
               NewValues <<- data.frame(Locus = Level2UpdateSelection[1], Period = Level2UpdateSelection[2], Blank = Level2UpdateSelection[3], Modification = Level2UpdateSelection[4], Quantity = Level2UpdateSelection[5], stringsAsFactors = FALSE)
               OldValues <<- QueryResults[SelectedRowUpdate(),]
               UpdateButtonQuery <- glue::glue_sql("UPDATE `level2` SET `Locus` = {NewValues$Locus},
-                                                   `Period` = {NewValues$Period},
-                                                   `Blank` = {NewValues$Blank},
-                                                   `Modification` = {NewValues$Modification},
-                                                   `Quantity` = {NewValues$Quantity}
-                                                   WHERE `Locus` = {OldValues$Locus}
-                                                   AND `Period` = {OldValues$Period}
-                                                   AND `Blank` = {OldValues$Blank}
-                                                   AND `Modification` = {OldValues$Modification}
-                                                   AND `Quantity` = {OldValues$Quantity}
-                                                                 ", .con = pool)
+                                                  `Period` = {NewValues$Period},
+                                                  `Blank` = {NewValues$Blank},
+                                                  `Modification` = {NewValues$Modification},
+                                                  `Quantity` = {NewValues$Quantity}
+                                                  WHERE `Locus` = {OldValues$Locus}
+                                                  AND `Period` = {OldValues$Period}
+                                                  AND `Blank` = {OldValues$Blank}
+                                                  AND `Modification` = {OldValues$Modification}
+                                                  AND `Quantity` = {OldValues$Quantity}
+                                                  ", .con = pool)
               dbExecute(pool, sqlInterpolate(ANSI(), UpdateButtonQuery))
               UpdatedLevel2 <- dbReadTable(pool, 'level2')
               output$Level2Table <- DT::renderDataTable(
@@ -446,169 +446,43 @@ shinyApp(
     #-----NewRecords-----#
     
     observeEvent(input$submit, {
-      if (input$NewLocusType == "XFind") {
-        # parse info pertaining to the xfind's provenance based on its XFindID
-        LocusValue <<- reactive({
-          z <- toString(input$NewLocus)
-          return(z)
-        })
-        XFindContext <- substr(LocusValue(), 1, 4) #this will only work if we can rely on the XFind IDs being *always* in the format 0006X001. Is that a reasonable expectation?  If not could instead use regex to split the input at the X.
-        XFindNumber <- substr(LocusValue(), 5, 8)
-        
-        #filter for contexts from which the xfind derives
-        XFindLevel2 <- dbReadTable(pool, 'level2')
-        XFindFilter <- reactive({
-          select(filter(XFindLevel2, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType=="Context" & Locus==XFindContext), Locus, LocusType, Period, Blank, Modification, Quantity)
-        })
-        observe({
-          XFindSubset <<- XFindFilter()
-          if (nrow(XFindSubset) == 0) {
-            #if no equivalent record exists:
-            XFindNew <- data.frame(Period=input$NewPeriod, Blank=input$NewBlank, Modification=input$NewModification, LocusType="Context", Locus=XFindContext, Quantity=input$NewQuantity)
-            #write the context to the level2 table
-            writeXFind <- dbWriteTable(pool, "level2", XFindNew, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE) #but this tries to write XFindSubset, which must be empty given the condition of this if(); instead should be writing a new row (I've built this as XFindNew, above) - but something is wrong with my SQL syntax below 
-            XFindNew_add <- glue::glue_sql("INSERT INTO `level2` (`Quantity`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({XFindNew$Quantity}, {XFindNew$Locus}, {XFindNew$Period}, {XFindNew$Blank}, {XFindNew$Modification})"
-                           , .con = pool) #this is throwing an SQL error, I think - but is necessary because otherwise dbWriteTable just writes to the local copy of level2 (so in the Shiny interface we get a shiny new table, but the back end doesn't get updated - I think)
-            dbExecute(pool, sqlInterpolate(ANSI(), XFindNew_add))
-            writeXFind #not sure this is necessary
-            message1 <- paste0("XFind ", LocusValue()," added as the first and only record of [",XFindContext,"/",input$NewPeriod,"/",input$NewBlank,"/",input$NewModification,"] configuration thus far.")
-            activitylog <- dbReadTable(pool, 'activitylog')
-            activitylog <- data.frame(Log = message1,
-                                      Timestamp = as.character(Sys.time()),
-                                      stringsAsFactors = FALSE)
-            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            writeActivity
-            activitylog <<- dbReadTable(pool, 'activitylog')
-            activitylog
-            
-            Level2 <- dbReadTable(pool, 'level2')
-            output$NewLevel2Table <- DT::renderDataTable(
-              datatable(Level2, selection=list(mode="single", target="row")))
-          }
-          
-          else {
-            #if the equivalent record already exists, update the quantity field to reflect this new xfind
-            QuantityPlusOne <- XFindSubset$Quantity + 1
-            XFindUpdateQuery1 <- glue::glue_sql("UPDATE `level2` SET
-                                                `Quantity` = {QuantityPlusOne}
-                                                WHERE `Locus` = {XFindSubset$Locus}
-                                                AND `Period` = {XFindSubset$Period}
-                                                AND `Blank` = {XFindSubset$Blank}
-                                                AND `Modification` = {XFindSubset$Modification}
-                                                ", .con = pool)
-            dbExecute(pool, sqlInterpolate(ANSI(), XFindUpdateQuery1))
-            
-            message2 <- paste0("XFind ", LocusValue()," added to existing batch of ",XFindSubset$Quantity," records with configuration [",XFindContext,"/",input$NewPeriod,"/",input$NewBlank,"/",input$NewModification,"]. There are now ",QuantityPlusOne," records of that configuration.")
-            activitylog <- dbReadTable(pool, 'activitylog')
-            activitylog <- data.frame(Log = message2,
-                                      Timestamp = as.character(Sys.time()),
-                                      stringsAsFactors = FALSE)
-            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            writeActivity
-            activitylog <<- dbReadTable(pool, 'activitylog')
-            activitylog
-            
-            Level2 <- dbReadTable(pool, 'level2')
-            output$NewLevel2Table <- DT::renderDataTable(
-              datatable(Level2, selection=list(mode="single", target="row")))
-            
-          }
-        })
-      }
-      
-      else {
-        #if input$NewLocusType is anything other than an xfind, filter for equivalent lociXblankXmodXperiod combinations
-        EquivRecord <- dbReadTable(pool, 'level2') #I wonder if we get trouble becuase these come in as character vectors instead of factors?
-        EquivRecordFilter <- data.frame()
-        AddedLocus <- 0
-        eventReactive(input$submit,{ 
-          AddedLocus <- 1
+      query <- reactive({
+        if (input$NewLocusType != "XFind") {
+          EquivRecord <- dbReadTable(pool, 'level2')
+          EquivRecordFilter <- data.frame()
+          EquivRecordFilter <- reactive({
+            select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
           })
-        observe ({
-          if (AddedLocus > 0) {
-        EquivRecordFilter <- reactive({ 
-          select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)  #check level2 for anything matching input
-        })
+          EquivRecordFilter_df <<- EquivRecordFilter()
+          
+          if (nrow(EquivRecordFilter_df) == 0) {
+            values <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
+            
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
+            
+            NewRecord <<- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
+            NewRecord$Locus <- as.character(NewRecord$Locus)
+            NewRecord$LocusType <- as.character(NewRecord$LocusType)
+            NewRecord$Period <- as.character(NewRecord$Period)
+            NewRecord$Blank <- as.character(NewRecord$Blank)
+            NewRecord$Modification <- as.character(NewRecord$Modification)
+            NewRecord$Quantity <- as.numeric(NewRecord$Quantity)
+            
+            WriteNewLevel2Record <- glue::glue_sql("INSERT INTO `level2` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `Quantity`) VALUES ({NewRecord$Locus}, {NewRecord$LocusType}, {NewRecord$Period}, {NewRecord$Blank}, {NewRecord$Modification}, {NewRecord$Quantity})", .con = pool)
+            
+            WriteNewLevel2Record <<- as.character(WriteNewLevel2Record)
+            WriteNewLevel2Record
+            queryx <<- as.character(WriteNewLevel2Record)
+            queryx
+            UpdateExistingLevel2Record <<- NULL
           }
-        })
-        observe({
-          if (nrow(EquivRecordFilter) == 0) {  #if there are no matching records, write one
-          values <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
           
-          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
-          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
-          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
-          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
-          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
-          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
-          
-          NewRecord <- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
-          
-          write_level2 <- dbWriteTable(pool, "level2", NewRecord, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-          write_level2
-          
-          Level2 <- dbReadTable(pool, 'level2')
-          output$NewLevel2Table <- DT::renderDataTable(
-            datatable(Level2, selection=list(mode="single", target="row")))
-        }
-        })
-        # 
-        # 
-        # observe({
-        #   if (exists(state) & length(state)) {   
-        #     EquivRecord <- dbReadTable(pool, 'level2')
-        #     EquivRecordFilter <- reactive({
-        #       select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
-        #     })
-        #     EquivRecordFilter_df <<- EquivRecordFilter()
-        #     EquivRecordRows <<- nrow(EquivRecordFilter_df)
-        #     state <<- NULL
-        #   }
-        #   if (!exists(state))
-        #   {
-        #     EquivRecord <- dbReadTable(pool, 'level2')
-        #     EquivRecordFilter <- reactive({
-        #       select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
-        #     })
-        #     EquivRecordFilter_df <<- EquivRecordFilter()
-        #     EquivRecordRows <<- nrow(EquivRecordFilter_df)
-        #     state <<- NULL
-        #   }
-        # })
-        # 
-        # observe({
-        #   if (EquivRecordRows == 0) {
-        #     values <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
-        #     
-        #     colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
-        #     colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
-        #     colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
-        #     colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
-        #     colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
-        #     colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
-        #     
-        #     NewRecord <- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
-        #     
-        #     write_level2 <- dbWriteTable(pool, "level2", NewRecord, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-        #     write_level2
-        #     
-        #     state <<- 1
-        #     
-        #     # UpdatedEquivRecord <- dbReadTable(pool, 'level2')
-        #     # UpdatedEquivRecordFilter <<- reactive({
-        #     #   select(filter(UpdatedEquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
-        #     # })
-        #     # 
-        #     # UpdatedEquivRecordFilter_df <- UpdatedEquivRecordFilter()
-        #     # EquivRecordFilter_df <<- UpdatedEquivRecordFilter_df
-        #     
-        #     Level2 <- dbReadTable(pool, 'level2')
-        #     output$NewLevel2Table <- DT::renderDataTable(
-        #       datatable(Level2, selection=list(mode="single", target="row")))
-        #     
-        #   }
-         observe ({ 
-          if (nrow(EquivRecordFilter) > 0) { #if the equivalent record already exists, update the quantity field to reflect this new addition to the existing record
+          if (nrow(EquivRecordFilter_df) > 0) {
             valuesx <- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
             
             colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <- 'Locus'
@@ -621,47 +495,28 @@ shinyApp(
             toAdd <- as.data.frame(valuesx$singleResponse_dfx, stringsAsFactors = FALSE)
             
             EquivRecordQuantityUpdated <- EquivRecordFilter_df$Quantity + toAdd$Quantity
-            EquivRecordUpdateQuery1 <- glue::glue_sql("UPDATE `level2` SET
-                                                      `Quantity` = {EquivRecordQuantityUpdated}
-                                                      WHERE `Locus` = {EquivRecordFilter_df$Locus}
-                                                      AND `Period` = {EquivRecordFilter_df$Period}
-                                                      AND `Blank` = {EquivRecordFilter_df$Blank}
-                                                      AND `Modification` = {EquivRecordFilter_df$Modification}
-                                                      ", .con = pool)
-            dbExecute(pool, sqlInterpolate(ANSI(), EquivRecordUpdateQuery1))
+            UpdateExistingLevel2Record <- glue::glue_sql("UPDATE `level2` SET `Quantity` = {EquivRecordQuantityUpdated} WHERE `Locus` = {EquivRecordFilter_df$Locus} AND `Period` = {EquivRecordFilter_df$Period} AND `Blank` = {EquivRecordFilter_df$Blank} AND `Modification` = {EquivRecordFilter_df$Modification}", .con = pool)
             
-    #        state <<- 2
-            
-            # UpdatedEquivRecord <- dbReadTable(pool, 'level2')
-            # UpdatedEquivRecordFilter <<- reactive({
-            #   select(filter(UpdatedEquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
-            # })
-            # UpdatedEquivRecordFilter_df <- UpdatedEquivRecordFilter()
-            # 
-            # if (sum(UpdatedEquivRecordFilter_df$Quantity) == EquivRecordQuantityUpdated) { #for this to work reliably, 
-            #   EquivRecordFilter_df <<- NULL
-            # }
-            # else {}
-            # 
-            Level2 <- dbReadTable(pool, 'level2')
-            output$NewLevel2Table <- DT::renderDataTable(
-              datatable(Level2, selection=list(mode="single", target="row")))
-            
+            UpdateExistingLevel2Record <<- as.character(UpdateExistingLevel2Record)
+            UpdateExistingLevel2Record
+            queryx <<- as.character(UpdateExistingLevel2Record)
+            queryx
+            WriteNewLevel2Record <<- NULL
           }
-         })
-          
-          
- #       })
-      }
+        }
+        else {
+          #do the xfind stuff here
+        }
+      })
       
-      #upon submitting field values, expand the response based on the value on the Quantity field
-      #the expandRows command is part of the splitstackshape package
+      query <<- query()
+      dbExecute(pool, sqlInterpolate(ANSI(), queryx))
+      
+      
       ValuesToExpand <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
       toExpand <- as.data.frame(ValuesToExpand$singleResponse_df)
       singleRow_expanded <- expandRows(toExpand, count = 6, count.is.col = TRUE, drop = TRUE)
-      #still needs a mechanism that adds or removes records/rows if the Quantity field is updated after editing the data table
       
-      #add columns to the expanded table
       singleRow_expanded$ArtefactID <- ""
       singleRow_expanded$WrittenOnArtefact <- ""
       singleRow_expanded$Illustration <- ""
@@ -672,25 +527,18 @@ shinyApp(
       singleRow_expanded <- singleRow_expanded[c(0:12)]
       singleRow_expanded <- data.frame(lapply(singleRow_expanded, as.character), stringsAsFactors = FALSE)
       
-      #rename columns in the expanded table
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewBlank'] <- 'Blank'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewModification'] <- 'Modification'
       
-      #write the new expanded rows to the level3 table in the database
       write_level3 <- dbWriteTable(pool, "level3", singleRow_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
       write_level3
-      
-      Level3 <- dbReadTable(pool, 'level3')
-      output$NewLevel3Table <- DT::renderDataTable(
-        datatable(Level3, selection=list(mode="single", target="row")))
       
     })
     
     #-----/NewRecords-----#
-    
     
     #-----ActivityLog-----#
     activitylog <- dbReadTable(pool, 'activitylog')
@@ -699,6 +547,6 @@ shinyApp(
     
     #-----/ActivityLog-----#
     
-  }
-)
+    }
+    )
 shinyApp(ui, server)
