@@ -90,10 +90,13 @@ shinyApp(
                                               DT::dataTableOutput("Level3Table")
                                      ),
                                      tabPanel("Photos",
-                                              column(width = 2,
-                                                     textInput("newPhotoFilename", "Enter complete filename of new photo")),
-                                              column(width = 2,
-                                                     actionButton("newPhoto", "Add new")),
+                                              fluidRow(
+                                                column(width = 6,
+                                                       textInput("newPhotoFilename", "Enter complete filename of new photo"))),
+                                              fluidRow(
+                                                column(width = 2,
+                                                       actionButton("newPhoto", "Add new"))),
+                                              hr(),
                                               DT::dataTableOutput("PhotosTable")
                                      ),
                                      tabPanel("Illustrations",
@@ -103,7 +106,7 @@ shinyApp(
                 ),
                 
                 tabPanel("Create Records",
-                         titlePanel("Create new records"),
+                         titlePanel("Create New Records"),
                          fluidRow(
                            column(width = 2,
                                   selectInput("NewLocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
@@ -122,6 +125,8 @@ shinyApp(
                          actionButton("toggleNewBlankMod", "New Blank or Modification"),
                          uiOutput("newBlankMod"),
                          hr(),
+                         h2("All Records"),
+                         column(12, verbatimTextOutput("x3", placeholder = TRUE)),
                          tabsetPanel(id = "myTabsx", type = "tabs",
                                      tabPanel("All Level 2",
                                               DT::dataTableOutput("NewLevel2Table")
@@ -141,6 +146,14 @@ shinyApp(
   server <- function(input, output, session){
     #define the fields we want to save from the form
     fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity") #I think probably 'Quantity' should appear only on the data input tab, and not on the retrieval one?
+    
+    Level2 <- dbReadTable(pool, 'level2')
+    output$NewLevel2Table <- DT::renderDataTable(
+      datatable(Level2[,-1], rownames = FALSE))
+    
+    Level3 <- dbReadTable(pool, 'level3')
+    output$NewLevel3Table <- DT::renderDataTable(
+      datatable(Level3[,-1], rownames = FALSE))
     
     # 
     # observe({
@@ -274,7 +287,7 @@ shinyApp(
         Level3 <- dbReadTable(pool, 'level3')
         Level3FilterResults <- filter(Level3, Locus==Level3Selection[1] & Period==Level3Selection[2] & Blank==Level3Selection[3] & Modification==Level3Selection[4])
         output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults, selection=list(mode="single", target="cell"), editable = TRUE)) #should eliminate 'id' field from results returned
+          datatable(Level3FilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = TRUE)) #should eliminate 'id' field from results returned
         
         observe({
           SelectedCells <- input$Level3Table_cells_selected
@@ -285,14 +298,14 @@ shinyApp(
               Photos <- dbReadTable(pool, 'photos')
               PhotosFilterResults <- filter(Photos, ArtefactID=="None")
               output$PhotosTable <- DT::renderDataTable(
-                datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
+                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
             }
             else {
               PhotosSelection <- unlist(Level3[Level3IndexValues[1], 7])
               Photos <- dbReadTable(pool, 'photos')
               PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
               output$PhotosTable <- DT::renderDataTable(
-                datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
+                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
               observeEvent(input$newPhoto, {
                 newPhotoResponses <- reactiveValues(
                   NewPhoto = input$newPhotoFilename)
@@ -305,7 +318,7 @@ shinyApp(
                 Photos <- dbReadTable(pool, 'photos')
                 PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
                 output$PhotosTable <- DT::renderDataTable(
-                  datatable(PhotosFilterResults, selection=list(mode="single", target="row"), editable = TRUE))
+                  datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
               })
             }
           }
@@ -313,7 +326,7 @@ shinyApp(
             Photos <- dbReadTable(pool, 'photos')
             PhotosFilterResults <- filter(Photos, ArtefactID=="None")
             output$PhotosTable <- DT::renderDataTable(
-              datatable(PhotosFilterResults, selection=list(mode="single", target="row")))
+              datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
           }  
         })
       }
@@ -321,7 +334,7 @@ shinyApp(
         Level3 <- dbReadTable(pool, 'level3')
         Level3FilterResults <- filter(Level3, Blank=="None")
         output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults, selection=list(mode="single", target="cell")))
+          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell")))
       }
       
       
@@ -480,6 +493,18 @@ shinyApp(
             queryx <<- as.character(WriteNewLevel2Record)
             queryx
             UpdateExistingLevel2Record <<- NULL
+            
+            message1 <- paste0("New record added to Level2 table: ","[",NewRecord$LocusType,"/",NewRecord$Locus,"/",NewRecord$Period,"/",NewRecord$Blank,"/",NewRecord$Modification,"/",NewRecord$Quantity,"].")
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message1,
+                                      Timestamp = as.character(Sys.time()),
+                                      stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
+            output$x3 <- renderPrint(message1)
+            
           }
           
           if (nrow(EquivRecordFilter_df) > 0) {
@@ -502,6 +527,18 @@ shinyApp(
             queryx <<- as.character(UpdateExistingLevel2Record)
             queryx
             WriteNewLevel2Record <<- NULL
+            
+            message2 <- paste0(toAdd$Quantity," lithics added to existing batch of ",EquivRecordFilter_df$Quantity," records with configuration: [",EquivRecordFilter_df$LocusType,"/",EquivRecordFilter_df$Locus,"/",EquivRecordFilter_df$Period,"/",EquivRecordFilter_df$Blank,"/",EquivRecordFilter_df$Modification,"]. There are now ",EquivRecordQuantityUpdated," records of that configuration.")
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message2,
+                                      Timestamp = as.character(Sys.time()),
+                                      stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
+            output$x3 <- renderPrint(message2)
+            
           }
         }
         else {
@@ -536,6 +573,16 @@ shinyApp(
       write_level3 <- dbWriteTable(pool, "level3", singleRow_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
       write_level3
       
+      Level2 <- dbReadTable(pool, 'level2')
+      output$NewLevel2Table <- DT::renderDataTable(
+        datatable(Level2[,-1], rownames = FALSE))
+      
+      Level3 <- dbReadTable(pool, 'level3')
+      output$NewLevel3Table <- DT::renderDataTable(
+        datatable(Level3[,-1], rownames = FALSE))
+      
+
+      
     })
     
     #-----/NewRecords-----#
@@ -543,7 +590,7 @@ shinyApp(
     #-----ActivityLog-----#
     activitylog <- dbReadTable(pool, 'activitylog')
     activitylog
-    output$ActivityLogDisplay <- renderDataTable(datatable(activitylog, rownames = FALSE, selection=list(mode="single", target="row")))
+    output$ActivityLogDisplay <- renderDataTable(datatable(activitylog[,-1], rownames = FALSE, selection=list(mode="single", target="row"), options=list(order=list(list(1, 'desc')), pageLength=20)))
     
     #-----/ActivityLog-----#
     
