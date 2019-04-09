@@ -223,15 +223,15 @@ shinyApp(
       if (nrow(QueryResults()) > 0 & nrow(QueryResults()) != nrow(Level2)) {
         QueryResultsxx <- reactive({
           withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
-          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton)) #I'm not sure what's happening here - these are to modify the query itself (update/delete), or to modify the results of the query?
+          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
         })
+        
         QueryResults <<- QueryResultsxx()
         
-        
-        SelectedRowUpdate <- eventReactive(input$UpdateButton, {
+        SelectedRowUpdate <<- eventReactive(input$UpdateButton, {
           as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
         })
-        SelectedRowDelete <- eventReactive(input$DeleteButton, {
+        SelectedRowDelete <<- eventReactive(input$DeleteButton, {
           as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
         })
         output$Level2Table <- DT::renderDataTable(
@@ -242,36 +242,6 @@ shinyApp(
           )
         )#added [,-3] to QueryResults to exclude 'id' column, since including it can I think  only confuse things, still haven't figured out how to control column widths (it's actually a real struggle)
         to_index <<- QueryResults[,-c(1,2)] #restored this because it's needed for Level3 work below; it excludes the columns that have been dedicated to buttons, since they will screw up the indexing that follows
-        
-        observe({
-          if (length(SelectedRowUpdate())) {
-            Level2UpdateSelection <<- unlist(QueryResults[SelectedRowUpdate(), c(4,6,7,8,9)])
-            Level2UpdateSelection_df <<- as.data.frame(Level2UpdateSelection, stringsAsFactors = FALSE)
-            if (!identical(QueryResults, Level2UpdateSelection_df)) {
-              NewValues <<- data.frame(Locus = Level2UpdateSelection[1], Period = Level2UpdateSelection[2], Blank = Level2UpdateSelection[3], Modification = Level2UpdateSelection[4], Quantity = Level2UpdateSelection[5], stringsAsFactors = FALSE)
-              OldValues <<- QueryResults[SelectedRowUpdate(),]
-              UpdateButtonQuery <- glue::glue_sql("UPDATE `level2` SET `Locus` = {NewValues$Locus},
-                                                  `Period` = {NewValues$Period},
-                                                  `Blank` = {NewValues$Blank},
-                                                  `Modification` = {NewValues$Modification},
-                                                  `Quantity` = {NewValues$Quantity}
-                                                  WHERE `Locus` = {OldValues$Locus}
-                                                  AND `Period` = {OldValues$Period}
-                                                  AND `Blank` = {OldValues$Blank}
-                                                  AND `Modification` = {OldValues$Modification}
-                                                  AND `Quantity` = {OldValues$Quantity}
-                                                  ", .con = pool)
-              dbExecute(pool, sqlInterpolate(ANSI(), UpdateButtonQuery))
-              UpdatedLevel2 <- dbReadTable(pool, 'level2')
-              output$Level2Table <- DT::renderDataTable(
-                datatable(UpdatedLevel2))
-            }
-            else {
-              output$x2 <- renderPrint("blah")
-            }
-          }
-          else {}
-        })
         
       }
     })
@@ -340,8 +310,6 @@ shinyApp(
       
     })
     
-    #-----/TableFilters-----#
-    
     
     # tabIndex <- 1:6
     # observeEvent(input$Level3Table_cells_selected, {
@@ -353,69 +321,7 @@ shinyApp(
     # })
     # 
     
-    
-    
-    
-    
-    
-    
-    #compare proxy to determine whether changes have been made, and only allow changes to be saved or force/prompt changes to be saved if changes are identified
-    
-    
-    
-    
-    # 
-    # 
-    # 
-    # observeEvent(input$Level3Table_cell_edit, {
-    #   info = input$Level3Table_cell_edit
-    #   
-    #   GrabbedEntitiesRV <- reactiveValues(
-    #     i = info$row,
-    #     j = info$col = info$col + 1,  # column index offset by 1
-    #     v = info$value,
-    #     l = QueryResults[info$row,2]
-    #   )
-    #   
-    #   GrabbedEntities <- NULL
-    #   Rowx <- GrabbedEntitiesRV$i
-    #   Columnx <- GrabbedEntitiesRV$j
-    #   Valuex <- GrabbedEntitiesRV$v
-    #   Locusx <- GrabbedEntitiesRV$l
-    #   GrabbedEntities$Row <- Rowx
-    #   GrabbedEntities$Column <- Columnx
-    #   GrabbedEntities$Value <- Valuex
-    #   GrabbedEntities$Locus <- Locusx
-    #   
-    #   # if (all(is.na(GrabbedEntities))) {
-    #   #   GrabbedEntities <- data.frame(info, stringsAsFactors = FALSE)
-    #   # } else {
-    #   #   GrabbedEntities <- dplyr::bind_rows(GrabbedEntities, data.frame(info, stringsAsFactors = FALSE))
-    #   # }
-    #   
-    #   Level3Mirror <- reactive({output$Level3Table})
-    #   #determine sameness
-    # })
-    # 
-    # observeEvent(input$level3_save, {
-    #   updateDB(pool = pool, tbl = "level3")
-    #   
-    #   # GrabbedLocus <- NULL
-    #   # GrabbedColumn <- NULL
-    #   # NewValue <- NULL
-    #   # GrabbedEntities$Locus <- GrabbedLocus
-    #   # GrabbedEntities$Column <- GrabbedColumn
-    #   # GrabbedEntities$Value <- NewValue
-    #   # #DataSame <- NULL
-    #   
-    #   Level3 <- dbReadTable(pool, 'level3')
-    #   QueryResults <<- QueryResultsRV()
-    #   output$Level2Table <- DT::renderDataTable(
-    #     datatable(QueryResults, extensions = 'Buttons', filter="top", selection=list(mode="single", target="row")))
-    # })
-    
-    
-    
+    #-----/TableFilters-----#
     
     #-----New IDs-----#
     Level3 <- dbReadTable(pool, 'level3')
@@ -586,6 +492,86 @@ shinyApp(
     })
     
     #-----/NewRecords-----#
+    
+    #-----UpdateDeleteRecords-----#
+    
+    Level2_rvs <- reactiveValues(
+      data = NA,
+      dbdata = NA,
+      dataSame = TRUE,
+      editedInfo = NA
+    )
+    
+    Level2_mysource <- reactive({
+      pool %>% tbl("level2") %>% collect()
+    })
+    
+    observeEvent(Level2_mysource(), {
+      Level2_data <- Level2_mysource() %>% arrange(id)
+      Level2_rvs$data <- Level2_data
+      Level2_rvs$dbdata <- Level2_data
+    })
+    
+    proxy1 = dataTableProxy('QueryResults()')
+    
+    observeEvent(input$Level2Table_cell_edit, {
+      info = input$Level2Table_cell_edit
+      str(info)
+      i = info$row
+      j = info$col
+      v = info$value
+      
+      Level2 <- dbReadTable(pool, 'level2')
+      info$id = Level2[i,1]
+      
+      Level2_rvs$data[i, j] <<- DT::coerceValue(v, dplyr::pull(Level2_rvs$data[i, j]))
+      replaceData(proxy1, Level2_rvs$data, resetPaging = FALSE, rownames = FALSE)
+      
+      Level2_rvs$dataSame <- identical(Level2_rvs$data, Level2_rvs$dbdata)
+      
+      if (all(is.na(Level2_rvs$editedInfo))) {
+        Level2_rvs$editedInfo <- data.frame(info, stringsAsFactors = FALSE)
+      } else {
+        Level2_rvs$editedInfo <- dplyr::bind_rows(Level2_rvs$editedInfo, data.frame(info, stringsAsFactors = FALSE))
+      }
+      
+      })
+    
+
+      observeEvent(input$UpdateButton, {
+        editedValue = Level2_rvs$editedInfo
+        editedValue <- editedValue %>%
+          group_by(row, col) %>%
+          filter(value == dplyr::last(value)| is.na(value)) %>%
+          ungroup()
+
+        editedValueForSelectedRow <<- subset(editedValue, editedValue$row %in% SelectedRowUpdate())
+        if (length(editedValueForSelectedRow)) {
+          lapply(seq_len(nrow(editedValueForSelectedRow)), function(i){
+            id = editedValueForSelectedRow$id[i]
+            col = dbListFields(pool, 'level2')[editedValueForSelectedRow$col[i]]
+            value = editedValueForSelectedRow$value[i]
+
+            UpdateButtonQuery <- glue::glue_sql("UPDATE `level2` SET
+                                                {`col`} = {value}
+                                                WHERE id = {id}
+                                                ", .con = pool)
+            dbExecute(pool, sqlInterpolate(ANSI(), UpdateButtonQuery))
+          })
+        }
+        else {
+          output$x2 <- renderPrint("This record has not been changed. There is nothing to update.")
+        }
+
+        Level2_rvs$dbdata <- Level2_rvs$data
+        Level2_rvs$dataSame <- TRUE
+
+        Level2 <- dbReadTable(pool, 'level2')
+        output$Level2Table <- renderDataTable(datatable(Level2)) #need to ensure that this renders a properly re-usable datatable
+
+        })
+      
+    #-----/UpdateDeleteRecords-----#
     
     #-----ActivityLog-----#
     activitylog <- dbReadTable(pool, 'activitylog')
