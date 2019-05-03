@@ -188,7 +188,11 @@ shinyApp(
     
     #-----QueryLookup-----#
     
-    QueryResults <- eventReactive(input$query, {
+
+    Level2 <<- dbReadTable(pool, 'level2')
+    QueryResults <<- Level2[0,]
+    
+    QueryResultsX <<- eventReactive(input$query, {
       Level2 <- dbReadTable(pool, 'level2')
       filtered <- Level2
       if (!is.null(input$Locus)) {
@@ -206,27 +210,30 @@ shinyApp(
       filtered
     })
     
-    observe({
-      Level2 <- dbReadTable(pool, 'level2')
-      EmptyDT <- filter(QueryResults(), LocusType=="blah")
+    observeEvent(input$query, {
+      QueryResults <<- QueryResultsX()
+    })
+    
       
-      if (nrow(QueryResults()) == nrow(Level2)) {
+    observe({
+      if (nrow(QueryResults) == nrow(Level2)) {
+        EmptyDT <- filter(QueryResults, LocusType == "blah")
         output$Level2Table <- renderDataTable(datatable(EmptyDT[,-1]))
         output$x2 <- renderPrint("Identical to the complete set of Level2 records")
       }
       
-      if (nrow(QueryResults()) == 0) {
+      if (nrow(QueryResults) == 0) {
         output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
-        output$Level2Table <- renderDataTable(datatable(QueryResults()[,-1]))
+        output$Level2Table <- renderDataTable(datatable(QueryResults[,-1]))
       }
       
-      if (nrow(QueryResults()) > 0 & nrow(QueryResults()) != nrow(Level2)) {
-        QueryResultsxx <- reactive({
-          withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults()))
-          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults()), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
+      if (nrow(QueryResults) > 0 & nrow(QueryResults) != nrow(Level2)) {
+        QueryResultsWithButtons <<- reactive({
+          withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(QueryResults), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), QueryResults))
+          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(QueryResults), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
         })
         
-        QueryResults <<- QueryResultsxx()
+        QueryResultsWithButtons_df <<- QueryResultsWithButtons()
         
         SelectedRowUpdate <<- eventReactive(input$UpdateButton, {
           as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
@@ -237,8 +244,8 @@ shinyApp(
         
         
         output$Level2Table <- DT::renderDataTable(
-          datatable(QueryResults[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row", editable = TRUE), options = list(autowidth = TRUE,columnDefs = list(list(targets=c(0,1,2,7,9), width='50'), list(targets=c(3,4,5,6), width='100')))))
-        to_index <<- QueryResults[,-c(1,2)]
+          datatable(QueryResultsWithButtons_df[,-3], escape = FALSE, rownames = FALSE, editable = TRUE, selection = list(mode = "single", target = "row"), options = list(autowidth = TRUE,columnDefs = list(list(targets=c(0,1,2,7,9), width='50'), list(targets=c(3,4,5,6), width='100')))))
+        to_index <<- QueryResultsWithButtons_df[,-c(1,2)]
       }
     })
     
@@ -499,15 +506,17 @@ shinyApp(
       dataSame = TRUE,
       editedInfo = NA
     )
-    Level2_mysource <- reactive({
-      pool %>% tbl("level2") %>% collect()
+    Level2_mysource <<- reactive({
+      pool %>% tbl('level2') %>% collect()
     })
+    
     observeEvent(Level2_mysource(), {
-      Level2_data <- Level2_mysource() %>% arrange(id)
+      Level2_data <<- Level2_mysource() %>% arrange(id)
       Level2_rvs$data <- Level2_data
       Level2_rvs$dbdata <- Level2_data
     })
-    proxy1 = dataTableProxy('QueryResults')
+    
+    proxy1 <<- dataTableProxy('QueryResultsWithButtons_df')
     
     observeEvent(input$Level2Table_cell_edit, {
       info = input$Level2Table_cell_edit
@@ -517,26 +526,31 @@ shinyApp(
       info$id <- to_index$id
       str(info)
       
-      Level2_rvs$data[i, j] <<- DT::coerceValue(v, dplyr::pull(Level2_rvs$data[i, j]))
+      yy <<- as.data.frame(info)
+      
+      Level2_rvs$data[i, j] <<- DT::coerceValue(v, dplyr::pull(Level2_rvs$data[info$id, j]))
+      zz <<- Level2_rvs$data[i, j]
       replaceData(proxy1, Level2_rvs$data, resetPaging = FALSE, rownames = FALSE)
       Level2_rvs$dataSame <- identical(Level2_rvs$data, Level2_rvs$dbdata)
       if (all(is.na(Level2_rvs$editedInfo))) {
-        Level2_rvs$editedInfo <- data.frame(info, stringsAsFactors = FALSE)
+        Level2_rvs$editedInfo <<- data.frame(info, stringsAsFactors = FALSE)
       } else {
-        Level2_rvs$editedInfo <- dplyr::bind_rows(Level2_rvs$editedInfo, data.frame(info, stringsAsFactors = FALSE))
+        Level2_rvs$editedInfo <<- dplyr::bind_rows(Level2_rvs$editedInfo, data.frame(info, stringsAsFactors = FALSE))
       }
+
+      qq <<- Level2_rvs$editedInfo
+      
     })
-    
+
     observeEvent(input$UpdateButton, {
-      editedValue = Level2_rvs$editedInfo
-      editedValue <- editedValue %>%
+      editedValue <<- Level2_rvs$editedInfo
+      editedValue <<- editedValue %>%
         group_by(row, col) %>%
         filter(value == dplyr::last(value) | is.na(value)) %>%
         ungroup()
-      
-      editedValueForSelectedRow <<- subset(editedValue, editedValue$row %in% SelectedRowUpdate())
-      Level2RowBeforeChanged <<- subset(Level2_rvs$dbdata, id %in% editedValueForSelectedRow$id)
-      Level2RowAfterChanged <<- subset(Level2_rvs$data, id %in% editedValueForSelectedRow$id)
+      kk <<- SelectedRowUpdate()
+      editedValueForSelectedRow <<- filter(editedValue, editedValue$row == SelectedRowUpdate())
+      Level2RowBeforeChanged <<- filter(Level2_rvs$dbdata, id == editedValueForSelectedRow$id)
       Level3 <- dbReadTable(pool, 'level3')
       Level3Filtered <<- Level3 %>%
         filter(Locus == as.character(Level2RowBeforeChanged[,2])) %>%
@@ -544,27 +558,22 @@ shinyApp(
         filter(Period == as.character(Level2RowBeforeChanged[,4])) %>%
         filter(Blank == as.character(Level2RowBeforeChanged[,5])) %>%
         filter(Modification == as.character(Level2RowBeforeChanged[,6]))
-      NewLevel3_Locus <- as.character(Level2RowBeforeChanged[,2])
-      NewLevel3_LocusType <- as.character(Level2RowBeforeChanged[,3])
-      NewLevel3_Period <- as.character(Level2RowBeforeChanged[,4])
-      NewLevel3_Blank <- as.character(Level2RowBeforeChanged[,5])
-      NewLevel3_Modification <- as.character(Level2RowBeforeChanged[,6])
+      ExistingLevel3_Locus <- as.character(Level2RowBeforeChanged[,2])
+      ExistingLevel3_LocusType <- as.character(Level2RowBeforeChanged[,3])
+      ExistingLevel3_Period <- as.character(Level2RowBeforeChanged[,4])
+      ExistingLevel3_Blank <- as.character(Level2RowBeforeChanged[,5])
+      ExistingLevel3_Modification <- as.character(Level2RowBeforeChanged[,6])
       
       QuantityWoAR <- as.numeric(nrow(filter(Level3Filtered, WrittenOnArtefact == "Yes")))
-      
       if (length(editedValueForSelectedRow) & QuantityWoAR == 0) {
         lapply(seq_len(nrow(editedValueForSelectedRow)), function(i){
           id = editedValueForSelectedRow$id[i]
           col = dbListFields(pool, 'level2')[editedValueForSelectedRow$col[i]]
           value = editedValueForSelectedRow$value[i]
           
-          UpdateButtonQuery <- glue::glue_sql("UPDATE `level2` SET
-                                                {`col`} = {value}
-                                                WHERE id = {id}
-                                                ", .con = pool)
-          dbExecute(pool, sqlInterpolate(ANSI(), UpdateButtonQuery))
-          
-          UpdateCorrespondingLevel3Records <- glue::glue_sql("UPDATE `level3` SET {`col`} = {value} WHERE Locus = {NewLevel3_Locus} AND LocusType = {NewLevel3_LocusType} AND Period = {NewLevel3_Period} AND Blank = {NewLevel3_Blank} AND Modification = {NewLevel3_Modification}", .con = pool)
+          UpdateLevel2Records <<- glue::glue_sql("UPDATE `level2` SET {`col`} = {value} WHERE id = {id}", .con = pool)
+          UpdateCorrespondingLevel3Records <<- glue::glue_sql("UPDATE `level3` SET {`col`} = {value} WHERE Locus = {ExistingLevel3_Locus} AND LocusType = {ExistingLevel3_LocusType} AND Period = {ExistingLevel3_Period} AND Blank = {ExistingLevel3_Blank} AND Modification = {ExistingLevel3_Modification}", .con = pool)
+          dbExecute(pool, sqlInterpolate(ANSI(), UpdateLevel2Records))
           dbExecute(pool, sqlInterpolate(ANSI(), UpdateCorrespondingLevel3Records))
         })
       }
@@ -572,20 +581,13 @@ shinyApp(
         output$x2 <- renderPrint("This record has not been changed. There is nothing to update.")
       }
       if (length(editedValueForSelectedRow) & QuantityWoAR > 0) {
-        OverWriteWoARModalDT <- filter(Level3Filtered, WrittenOnArtefact == "Yes")
-        OverWriteWoARModalDT <- OverWriteWoARModalDT[,-1]
-        OverWriteWoARModalDT <- OverWriteWoARModalDT[,-7]
-        lapply(seq_len(nrow(editedValueForSelectedRow)), function(i){
-          id = editedValueForSelectedRow$id[i]
-          col = dbListFields(pool, 'level2')[editedValueForSelectedRow$col[i]]
-          value = editedValueForSelectedRow$value[i]
-          
-        })
-      
-      
+        OverwritenWoARModalDT <- filter(Level3Filtered, WrittenOnArtefact == "Yes")
+        OverwritenWoARModalDT <- OverwritenWoARModalDT[,-1]
+        OverwritenWoARModalDT <- OverwritenWoARModalDT[,-7]
+        
         showModal(modalDialog(title = "Warning!",
                               paste0("These changes will also modify data pertaining to ",QuantityWoAR," artefacts whose ArtefactIDs have already been written on the phyical artefacts. Please ensure that these changes reflect the actual characteristics of these items, and move them to their new bag [",Level2RowAfterChanged$Locus,"/",Level2RowAfterChanged$Period,"/",Level2RowAfterChanged$Blank,"/",Level2RowAfterChanged$Modification,"] if you decide to proceed. To confirm these changes, press Confirm. To abort, press Cancel"),
-                              DT::renderDataTable(datatable(OverWriteWoARModalDT, rownames = FALSE, editable = FALSE, options=list(scrollX=TRUE))),
+                              DT::renderDataTable(datatable(OverwritenWoARModalDT, rownames = FALSE, editable = FALSE, options=list(scrollX=TRUE))),
                               footer = tagList(
                                 actionButton('WoAR_OverWrite_Cancel',"Cancel"),
                                 actionButton('WoAR_OverWrite_Confirm', "Confirm")),
@@ -599,28 +601,71 @@ shinyApp(
         })
         
         observeEvent(input$WoAR_OverWrite_Confirm, {
-          UpdateButtonQueryx <- glue::glue_sql("UPDATE `level2` SET
-                                              {`col`} = {value}
-                                              WHERE id = {id}
-                                              ", .con = pool)
-          dbExecute(pool, sqlInterpolate(ANSI(), UpdateButtonQueryx))
-          
-          UpdateCorrespondingLevel3Recordsx <- glue::glue_sql("UPDATE `level3` SET {`col`} = {value} WHERE Locus = {NewLevel3_Locus} AND LocusType = {NewLevel3_LocusType} AND Period = {NewLevel3_Period} AND Blank = {NewLevel3_Blank} AND Modification = {NewLevel3_Modification}", .con = pool)
-          dbExecute(pool, sqlInterpolate(ANSI(), UpdateCorrespondingLevel3Recordsx))
+          lapply(seq_len(nrow(editedValueForSelectedRow)), function(i){
+            id = editedValueForSelectedRow$id[i]
+            col = dbListFields(pool, 'level2')[editedValueForSelectedRow$col[i]]
+            value = editedValueForSelectedRow$value[i]
+            UpdateLevel2Records <<- glue::glue_sql("UPDATE `level2` SET {`col`} = {value} WHERE id = {id}", .con = pool)
+            UpdateCorrespondingLevel3Records <<- glue::glue_sql("UPDATE `level3` SET {`col`} = {value} WHERE Locus = {ExistingLevel3_Locus} AND LocusType = {ExistingLevel3_LocusType} AND Period = {ExistingLevel3_Period} AND Blank = {ExistingLevel3_Blank} AND Modification = {ExistingLevel3_Modification}", .con = pool)
+            dbExecute(pool, sqlInterpolate(ANSI(), UpdateLevel2Records))
+            dbExecute(pool, sqlInterpolate(ANSI(), UpdateCorrespondingLevel3Records))
+          })
           removeModal()
         })
-        
-      }
+        }
+      
+      Level2 <- dbReadTable(pool, 'level2')
+      Level2RowAfterChanged <<- subset(Level2, id %in% editedValueForSelectedRow$id)
+      
+      NewLevel3_Locus <- as.character(Level2RowAfterChanged[,2])
+      NewLevel3_LocusType <- as.character(Level2RowAfterChanged[,3])
+      NewLevel3_Period <- as.character(Level2RowAfterChanged[,4])
+      NewLevel3_Blank <- as.character(Level2RowAfterChanged[,5])
+      NewLevel3_Modification <- as.character(Level2RowAfterChanged[,6])
+      
+      updateSelectizeInput(session, "Locus", selected = NewLevel3_Locus)
+      updateSelectizeInput(session, "LocusType", selected = NewLevel3_LocusType)
+      updateSelectizeInput(session, "Period", selected = NewLevel3_Period)
+      updateSelectizeInput(session, "Blank", selected = NewLevel3_Blank)
+      updateSelectizeInput(session, "Modification", selected = NewLevel3_Modification)
+      
+      QueryResultsY <<- reactive({
+        Level2 <- dbReadTable(pool, 'level2')
+        filtered <- Level2
+        if (!is.null(input$Locus)) {
+          filtered <- filtered %>% filter(Locus %in% input$Locus)
+        }
+        if (!is.null(input$Blank)) {
+          filtered <- filtered %>% filter(Blank %in% input$Blank)
+        }
+        if (!is.null(input$Modification)) {
+          filtered <- filtered %>% filter(Modification %in% input$Modification)
+        }
+        if (!is.null(input$Period)) {
+          filtered <- filtered %>% filter(Period %in% input$Period)
+        }
+        filtered
+      })
+      
+      #QueryResults <<- QueryResultsY()
+      QueryResultsZ <<- QueryResultsY()
       
       Level2_rvs$dbdata <- Level2_rvs$data
       Level2_rvs$dataSame <- TRUE
       
-      Level2 <- dbReadTable(pool, 'level2')
-      output$Level2Table <- renderDataTable(datatable(Level2)) #need to ensure that this renders a properly re-usable datatable
+      
+      
+      # observe({
+      #   QueryResultsYx <<- QueryResultsY()
+      #   QueryResults <<- QueryResultsYx
+      #   #QueryResultsZ <<- reactiveVal(QueryResultsY())
+      #   #QueryResults <<- QueryResultsZ
+      # })
+      
+      
+      
       
     })
-    
-    
     
     
     #-----/UpdateRecords-----#
