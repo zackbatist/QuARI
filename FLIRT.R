@@ -11,10 +11,17 @@ library(devtools)
 library(pool)
 library(purrr)
 library(shinyjs)
+library(stringr)
+library(shinyBS)
+library(shinydashboard)
 #devtools::install_github('rstudio/DT') #this was necessary in order to resolve an issue I had with the coerceValue command, which was throwing up errors when I wanted to coerce character values. More here: https://github.com/rstudio/DT/pull/480
 
 #need to set working directory to where keys.R is
-source("keys.R")
+current <- getwd()
+setwd("/Users/danielcontreras/Documents/SNAP/RShiny_DBinterface/")
+source("keys_alt.R") 
+# setwd(current) #when done
+
 
 #define pool handler by pool on global level
 pool <- pool::dbPool(drv = RMariaDB::MariaDB(),
@@ -29,32 +36,11 @@ onStop(function() {
 }) # important!
 
 
-#derived from https://github.com/MangoTheCat/dtdbshiny
-updateDB <- function(editedValue, pool, tbl){
-  # Keep only the last modification for a cell
-  editedValue <- editedValue %>% 
-    group_by(row, col) %>% 
-    filter(value == dplyr::last(value)| is.na(value)) %>% 
-    ungroup()
-  
-  conn <- poolCheckout(pool)
-  
-  lapply(seq_len(nrow(editedValue)), function(i){
-    id = editedValue$row[i]
-    col = dbListFields(pool, tbl)[editedValue$col[i]]
-    value = editedValue$value[i]
-    
-    query <- glue::glue_sql("UPDATE {`tbl`} SET
-                            {`col`} = {value}
-                            WHERE id = {id}
-                            ", .con = conn)
-    
-    dbExecute(conn, sqlInterpolate(ANSI(), query))
-  })
-  
-  poolReturn(conn)
-  print(editedValue)  
-  return(invisible())
+# This function will create the buttons for the datatable, they will be unique
+shinyInput <- function(FUN, len, id, ...) {inputs <- character(len)
+for (i in seq_len(len)) {
+  inputs[i] <- as.character(FUN(paste0(id, i), ...))}
+inputs
 }
 
 #read unmodified versions of allloci, blanks and modifications tables specifically for the input selection
@@ -64,260 +50,457 @@ blanks <- dbReadTable(pool, 'blanks_excavation')
 blanks
 modifications <- dbReadTable(pool, 'modifications_excavation')
 modifications
-
+periods <- dbReadTable(pool, 'dating')
+periods
+activitylog <- dbReadTable(pool, 'activitylog')
+activitylog
 
 shinyApp(
   ui <- fluidPage(
     tags$head(tags$style(
       HTML("input[type='search']:disabled {visibility:hidden}")
     )),
-    titlePanel("SNAP Lithics Processing"),
-    fluidRow(
-      column(width = 2,
-             selectInput("Locus", "Locus", choices = allloci$Locus, multiple = FALSE)),
-      column(width = 2,
-             selectInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE)),
-      column(width = 2,
-             selectInput("Period", "Period", choices = c("Lower Palaeolithic", "Lower / Middle Palaeolithic", "Middle Palaeolithic", "Middle / Upper Palaeolithic", "Upper Palaeolithic", "Upper Palaeolithic / Mesolithic", "Mesolithic", "Late Neolithic / Final Neolithic", "Final Neolithic / Early Bronze Age", "NonDiagnostic"), multiple = FALSE)),
-      column(width = 2,
-             selectInput("Blank", "Blank", choices = blanks$Blank, multiple = FALSE)),
-      column(width = 2,
-             selectInput("Modification", "Modification", choices = modifications$Modification, multiple = FALSE)),
-      column(width = 1,
-             numericInput("Quantity", "Quantity", ""))
-    ),
-    actionButton("submit", "Submit"),
-    actionButton("browser", "browser"),
-    actionButton("toggleNewBlankMod", "New Blank or Modification"),
-    uiOutput("newBlankMod"),
-    hr(),
-    tabsetPanel(type = "tabs",
-                tabPanel("All Level 2",
-                         DT::dataTableOutput("level2_allDT")
+    tabsetPanel(id = "OverallTabs", type = "tabs",
+                tabPanel("Query",
+                         titlePanel("SNAP Lithics Processing"),
+                         fluidRow(
+                           column(width = 2,
+                                  #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated         
+                                  selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),  
+                           column(width = 2,
+                                  selectizeInput("Locus", "Locus", choices = c("", allloci$Locus), multiple = TRUE, selected = "")),
+                           column(width = 2,
+                                  selectizeInput("Period", "Period", choices = c("", periods$Period), multiple = TRUE, selected = "")),
+                           column(width = 2,
+                                  selectizeInput("Blank", "Blank", choices = c("", blanks$Blank), multiple = TRUE, selected = "")),
+                           column(width = 2,
+                                  selectizeInput("Modification", "Modification", choices = c("", modifications$Modification), multiple = TRUE, selected = "")),
+                           column(width = 1,
+                                  numericInput("Quantity", "Quantity", "1", min=0)),
+                           column(3, verbatimTextOutput("x1")),
+                           column(3, verbatimTextOutput("x2"))
+                         ),
+                         actionButton("query", "Query"),
+                         hr(),
+                         tabsetPanel(id = "myTabs", type = "tabs",
+                                     tabPanel("Level 2 Selection",
+                                              DT::dataTableOutput("Level2Table")
+                                     ),
+                                     tabPanel("Level 3 Selection",
+                                              DT::dataTableOutput("Level3Table")
+                                     ),
+                                     tabPanel("Photos",
+                                              fluidRow(
+                                                column(width = 6,
+                                                       textInput("newPhotoFilename", "Enter complete filename of new photo"))),
+                                              fluidRow(
+                                                column(width = 2,
+                                                       actionButton("newPhoto", "Add new"))),
+                                              hr(),
+                                              DT::dataTableOutput("PhotosTable")
+                                     ),
+                                     tabPanel("Illustrations",
+                                              DT::dataTableOutput("IllustrationsTable")
+                                     )
+                         )
                 ),
-                tabPanel("All Level 3",
-                         DT::dataTableOutput("level3_allDT")
+                
+                tabPanel("Create Records",
+                         titlePanel("Create New Records"),
+                         fluidRow(
+                           column(width = 2,
+                                  selectInput("NewLocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
+                           column(width = 2,
+                                  selectizeInput("NewLocus", "Locus", choices = c("", allloci$Locus), multiple = FALSE, selected = "")),
+                           column(width = 2,
+                                  selectizeInput("NewPeriod", "Period", choices = c("", periods$Period), multiple = FALSE, selected = "")),
+                           column(width = 2,
+                                  selectizeInput("NewBlank", "Blank", choices = c("", blanks$Blank), multiple = FALSE, selected = "")),
+                           column(width = 2,
+                                  selectizeInput("NewModification", "Modification", choices = c("", modifications$Modification), multiple = FALSE, selected = "")),
+                           column(width = 1,
+                                  numericInput("NewQuantity", "Quantity", "1"))
+                         ),
+                         actionButton("submit", "Submit"),
+                         actionButton("toggleNewBlankMod", "New Blank or Modification"),
+                         uiOutput("newBlankMod"),
+                         hr(),
+                         h2("All Records"),
+                         column(12, verbatimTextOutput("x3", placeholder = TRUE)),
+                         tabsetPanel(id = "myTabsx", type = "tabs",
+                                     tabPanel("All Level 2",
+                                              DT::dataTableOutput("NewLevel2Table")
+                                     ),
+                                     tabPanel("All Level 3",
+                                              DT::dataTableOutput("NewLevel3Table")
+                                     )
+                         )
+                ),
+                tabPanel("Activity Log",
+                         titlePanel("Activity Log"),
+                         DT::dataTableOutput("ActivityLogDisplay")
                 )
-    ),
-    actionButton("level2_save", "Save Level 2 Changes"),
-    actionButton("level3_save", "Save Level 3 Changes"),
-    textOutput("x2")
+    )
   ),
   
-  
   server <- function(input, output, session){
-    observeEvent(input$browser,{
-      browser()
-    })
-    
     #define the fields we want to save from the form
-    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity")
+    fields <- c("Locus", "LocusType", "Period", "Blank", "Modification", "Quantity") #I think probably 'Quantity' should appear only on the data input tab, and not on the retrieval one?
     
+    Level2 <- dbReadTable(pool, 'level2')
+    output$NewLevel2Table <- DT::renderDataTable(
+      datatable(Level2[,-1], rownames = FALSE))
     
-    #filter the list of loci for the Locus field
-    allloci <- dbReadTable(pool, 'allloci')
-    locusChoices <- reactive({
-      filter(allloci, LocusType==input$LocusType) %>%
-        select(Locus) %>%
-        arrange(Locus)
-    })
+    Level3 <- dbReadTable(pool, 'level3')
+    output$NewLevel3Table <- DT::renderDataTable(
+      datatable(Level3[,-1], rownames = FALSE))
     
-    observe({
-      selectedpoint <- locusChoices()
-      updateSelectInput(session, inputId = "Locus", choices=c(selectedpoint[[1]]))
-    })
+    # 
+    # observe({
+    #   Level2 <- dbReadTable(pool, 'level2')
+    #   FilteredSelectionsRV <- reactive({
+    #     filtered <- Level2
+    #     if (!is.null(input$Locus)) {
+    #       filtered <- filtered %>% filter(Locus == input$Locus)
+    #     }
+    #     if (!is.null(input$Blank)) {
+    #       filtered <- filtered %>% filter(Blank == input$Blank)
+    #     }
+    #     if (!is.null(input$Modification)) {
+    #       filtered <- filtered %>% filter(Modification == input$Modification)
+    #     }
+    #     if (!is.null(input$Period)) {
+    #       filtered <- filtered %>% filter(Period == input$Period)
+    #     }
+    #     filtered
+    #   })
+    #   
+    # this second observe() takes filtered results and uses them to populate options for filters
+    #   observe({
+    #   FilteredSelections <<- FilteredSelectionsRV()
+    #   updateSelectInput(session, inputId = "Locus", choices=c(FilteredSelections$Locus))
+    #   updateSelectInput(session, inputId = "Period", choices=c(FilteredSelections$Period))
+    #   updateSelectInput(session, inputId = "Blank", choices=c(FilteredSelections$Blank))
+    #   updateSelectInput(session, inputId = "Modification", choices=c(FilteredSelections$Modification))
+    #   })
+    # })
+    #
     
-    #filter the list of blanks for the Blank field
-    blanks <- dbReadTable(pool, 'blanks_excavation')
-    blankChoices <- reactive({
-      select(filter(blanks, Period==input$Period), Blank)
-    })
+    #-----QueryLookup-----#
     
-    observe({
-      selectedBlank <- blankChoices()
-      updateSelectInput(session, inputId = "Blank", choices=c(selectedBlank[[1]]))
-    })
+    QueryResults <- function(QueryInputs) {
+      Level2 <- dbReadTable(pool, 'level2')
+      filtered <- Level2
+      if (QueryInputs$Locus != "") {
+        filtered <- filtered %>% filter(Locus %in% QueryInputs$Locus)
+      }
+      if (QueryInputs$Blank != "") {
+        filtered <- filtered %>% filter(Blank %in% QueryInputs$Blank)
+      }
+      if (QueryInputs$Modification != "") {
+        filtered <- filtered %>% filter(Modification %in% QueryInputs$Modification)
+      }
+      if (QueryInputs$Period != "") {
+        filtered <- filtered %>% filter(Period %in% QueryInputs$Period)
+      }
+      filtered
+    }
+    # QueryResults <- function(QueryInputs) {
+    #   Level2 <- dbReadTable(pool, 'level2')
+    #   filtered <- Level2
+    #   if (!is.null(QueryInputs$Locus)) {
+    #     filtered <- filtered %>% filter(Locus %in% QueryInputs$Locus)
+    #   }
+    #   if (!is.null(QueryInputs$Blank)) {
+    #     filtered <- filtered %>% filter(Blank %in% QueryInputs$Blank)
+    #   }
+    #   if (!is.null(QueryInputs$Modification)) {
+    #     filtered <- filtered %>% filter(Modification %in% QueryInputs$Modification)
+    #   }
+    #   if (!is.null(QueryInputs$Period)) {
+    #     filtered <- filtered %>% filter(Period %in% QueryInputs$Period)
+    #   }
+    #   filtered
+    # }
+    # 
+    # QueryResults <- eventReactive(input$query, {
+    #   Level2 <- dbReadTable(pool, 'level2')
+    #   filtered <- Level2
+    #   if (!is.null(input$Locus)) {
+    #     filtered <- filtered %>% filter(Locus %in% input$Locus)
+    #   }
+    #   if (!is.null(input$Blank)) {
+    #     filtered <- filtered %>% filter(Blank %in% input$Blank)
+    #   }
+    #   if (!is.null(input$Modification)) {
+    #     filtered <- filtered %>% filter(Modification %in% input$Modification)
+    #   }
+    #   if (!is.null(input$Period)) {
+    #     filtered <- filtered %>% filter(Period %in% input$Period)
+    #   }
+    #   filtered
+    # })
     
-    #filter the list of modifications for the Modification field
-    modifications <- dbReadTable(pool, 'modifications_excavation')
-    modificationChoices <- reactive({
-      select(filter(modifications, Period==input$Period), Modification)
-    })
-    
-    observe({
-      selectedModification <- modificationChoices()
-      updateSelectInput(session, inputId = "Modification", choices=c(selectedModification[[1]]))
-    })
-    #we might want the list of loci/blanks/modifications to be editable (i.e. not a preset list of possible options)
-    #it might therefore be better to have these fields as textInput rather than selectInput
-    #or maybe it's possible to have editable selectInputs somehow by coercing the values as character type rather than as factors?
-    
-    
-    #store content of the input fields
-    responses <- data.frame()
-    singleResponse <- reactive(
-      data.frame(
-        input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity
-      )
-    )
-    
-    
-    observeEvent(input$submit, {
-      if (input$LocusType == "XFind") {
-        # parse info pertaining to the xfind's provenance based on its XFindID
-        LocusValue <<- reactive({
-          z <- toString(input$Locus)
-          return(z)
+    observeEvent(input$query, {
+      #QueryInputs  <<- data.frame(Locus = NULL, Blank = NULL, Modification = NULL, Period = NULL)   
+      QueryTermLocus <- ifelse(!is.null(input$Locus), input$Locus, "")
+      QueryTermPeriod <- ifelse(!is.null(input$Period), input$Period, "")
+      QueryTermBlank <- ifelse(!is.null(input$Blank), input$Blank, "")
+      QueryTermModification <- ifelse(!is.null(input$Modification), input$Modification, "")
+      QueryInputs <<- data.frame(Locus = QueryTermLocus, Blank = QueryTermBlank, Modification = QueryTermModification, Period = QueryTermPeriod)
+      #QueryInputs  <<- data.frame(Locus = ifelse(!is.null(input$Locus), input$Locus, NULL), Blank = ifelse(!is.null(input$Blank), input$Blank, NULL), Modification = ifelse(!is.null(input$Modification), input$Modification, NULL), Period = ifelse(!is.null(input$Period), input$Period, NULL))
+      CurrentResults <- QueryResults(QueryInputs)
+      Level2 <- dbReadTable(pool, 'level2')
+      EmptyDT <- filter(CurrentResults, Locus=="blah")
+      
+      if (nrow(CurrentResults) == nrow(Level2)) {
+        output$Level2Table <- renderDataTable(datatable(EmptyDT[,-1]))
+        output$x2 <- renderPrint("Identical to the complete set of Level2 records")
+      }
+      
+      if (nrow(CurrentResults) == 0) {
+        output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+        output$Level2Table <- renderDataTable(datatable(CurrentResults[,-1]))
+      }
+      
+      if (nrow(CurrentResults) > 0 & nrow(CurrentResults) != nrow(Level2)) {
+        QueryResultsxx <- reactive({
+          withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(CurrentResults), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), CurrentResults))
+          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(CurrentResults), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
         })
-        XFindContext <- substr(LocusValue(), 1, 4)
-        XFindNumber <- substr(LocusValue(), 5, 8)
         
-        #filter for contexts from which the xfind derives
-        XFindLevel2 <- dbReadTable(pool, 'level2')
-        XFindFilter <- reactive({
-          select(filter(XFindLevel2, Period==input$Period & Blank==input$Blank & Modification==input$Modification & LocusType=="Context" & Locus==XFindContext), Locus, LocusType, Period, Blank, Modification, Quantity)
+        QueryResultsXX <<- QueryResultsxx()
+        
+        SelectedRowUpdate <<- eventReactive(input$UpdateButton, {
+          as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
         })
+        SelectedRowDelete <<- eventReactive(input$DeleteButton, {
+          as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
+        })
+        
+        
+        output$Level2Table <- DT::renderDataTable(
+          datatable(QueryResultsXX[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row", editable = TRUE), options = list(autowidth = TRUE,columnDefs = list(list(targets=c(0,1,2,7,9), width='50'), list(targets=c(3,4,5,6), width='100')))))
+        to_index <<- QueryResultsXX[,-c(1,2)]
+      }
+    })
+    
+    
+    
+    #-----/QueryLookup-----#
+    
+    #-----TableFilters-----#
+    observe({
+      sel <- input$Level2Table_rows_selected
+      if (length(sel)) {
+        Level2IndexValues <- sel
+        Level3Selection <- unlist(to_index[Level2IndexValues, c(2,4,5,6)])
+        Level3 <- dbReadTable(pool, 'level3')
+        Level3FilterResults <- filter(Level3, Locus==Level3Selection[1] & Period==Level3Selection[2] & Blank==Level3Selection[3] & Modification==Level3Selection[4])
+        output$Level3Table <- DT::renderDataTable(
+          datatable(Level3FilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = TRUE)) #should eliminate 'id' field from results returned
+        
         observe({
-          XFindSubset <<- XFindFilter()
-          if (nrow(XFindSubset) == 0) {
-            #if no equivalent record exists:
-            #write the context to the level2 table
-            writeXFind <- dbWriteTable(pool, "level2", XFindSubset, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            writeXFind
-            
-            #re-read the updated table from the database and render it in the data table
-            output$level2_allDT <- DT::renderDataTable({
-              datatable(pool %>% tbl("level2") %>% collect(),
-                        extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-            })
-            
-            #update the level2_mysource
-            level2_mysource <<- reactive({
-              pool %>% tbl("level2") %>% collect()
-            })
+          SelectedCells <- input$Level3Table_cells_selected
+          if (length(SelectedCells)) {
+            Level3 <- dbReadTable(pool, 'level3')
+            Level3IndexValues <- ifelse(SelectedCells[1,2]==10, SelectedCells, c(0,0))
+            if (Level3IndexValues[1] == 0){
+              Photos <- dbReadTable(pool, 'photos')
+              PhotosFilterResults <- filter(Photos, ArtefactID=="None")
+              output$PhotosTable <- DT::renderDataTable(
+                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+            }
+            else {
+              PhotosSelection <- unlist(Level3[Level3IndexValues[1], 7])
+              Photos <- dbReadTable(pool, 'photos')
+              PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
+              output$PhotosTable <- DT::renderDataTable(
+                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+              observeEvent(input$newPhoto, {
+                newPhotoResponses <- reactiveValues(
+                  NewPhoto = input$newPhotoFilename)
+                NewPhotoValue <- as.character(newPhotoResponses$NewPhoto)
+                Photos <- dbReadTable(pool, 'photos') # re-grab in case of duplicates
+                #increment photo ID - get current list, choose highest number, increment, and include in glue_sql statement
+                newPhotoInsert <- glue::glue_sql("INSERT INTO `photos` (`Filename`, `ArtefactID`) VALUES ({NewPhotoValue}, {PhotosSelection})"
+                                                 , .con = pool)
+                dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
+                Photos <- dbReadTable(pool, 'photos')
+                PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
+                output$PhotosTable <- DT::renderDataTable(
+                  datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+              })
+            }
           }
           else {
-            #if the equivalent record already exists, update the quantity field to reflect this new xfind
-            QuantityPlusOne <- XFindSubset$Quantity + 1
-            XFindUpdateQuery1 <- glue::glue_sql("UPDATE `level2` SET
-                                                `Quantity` = {QuantityPlusOne}
-                                                WHERE `Locus` = {XFindSubset$Locus}
-                                                AND `Period` = {XFindSubset$Period}
-                                                AND `Blank` = {XFindSubset$Blank}
-                                                AND `Modification` = {XFindSubset$Modification}
-                                                ", .con = pool)
-            dbExecute(pool, sqlInterpolate(ANSI(), XFindUpdateQuery1))
-            
-            
-            #re-read the updated table from the database and render it in the data table
-            output$level2_allDT <- DT::renderDataTable({
-              datatable(pool %>% tbl("level2") %>% collect(),
-                        extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-            })
-            
-            #update the level2_mysource
-            level2_mysource <<- reactive({
-              pool %>% tbl("level2") %>% collect()
-            })
-          }
+            Photos <- dbReadTable(pool, 'photos')
+            PhotosFilterResults <- filter(Photos, ArtefactID=="None")
+            output$PhotosTable <- DT::renderDataTable(
+              datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+          }  
         })
       }
       else {
-        #filter for equivalent lociXblankXmodXperiod combinations
-        EquivRecord <- dbReadTable(pool, 'level2')
-        EquivRecordFilter <- reactive({
-          select(filter(EquivRecord, Period==input$Period & Blank==input$Blank & Modification==input$Modification & LocusType==input$LocusType & Locus==input$Locus), Locus, LocusType, Period, Blank, Modification, Quantity)
-        })
-        observe({
-          EquivRecordSubset <<- EquivRecordFilter()
-          if (nrow(EquivRecordSubset) == 0) {
-            #store field values to a responses table after the submit button is clicked
-            values <- reactiveValues(singleResponse_df = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
-            
-            
-            #rename columns in singleResponse_df
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Locus'] <- 'Locus'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.LocusType'] <- 'LocusType'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Period'] <- 'Period'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Blank'] <- 'Blank'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Modification'] <- 'Modification'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.Quantity'] <- 'Quantity'
-            
-            NewRecord <- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
-            
-            #write the field values to the database as a new record in the level2 table after the submit button is clicked
-            #this step, as well as the following dbReadTable command, are very important since they allow the database to allocate an id to the row, which is crucial for updating modified cells
-            write_level2 <- dbWriteTable(pool, "level2", NewRecord, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            write_level2
-            
-            EquivRecord <- dbReadTable(pool, 'level2')
-            EquivRecordFilter <- reactive({
-              select(filter(EquivRecord, Period==input$Period & Blank==input$Blank & Modification==input$Modification & LocusType==input$LocusType & Locus==input$Locus), Locus, LocusType, Period, Blank, Modification, Quantity)
-            })
-            EquivRecordSubset <<- EquivRecordFilter()
-          
-            
-            #####!!!! It gets stuck in a loop here, fails to recognize that now there are equivalent records and that this branch of the if/else function should come to an end
-            
-            #re-read the updated table from the database and render it in the data table
-            output$level2_allDT <- DT::renderDataTable({
-              datatable(pool %>% tbl("level2") %>% collect(),
-                        extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-            })
-
-            #update level2_mysource in the global environment
-            level2_mysource <<- reactive({
-              pool %>% tbl("level2") %>% collect()
-            })
-          }
-          
-          else {
-            #if the equivalent record already exists, update the quantity field to reflect this new addition to the existing record
-            #store field values to a responses table after the submit button is clicked
-            valuesx <- reactiveValues(singleResponse_dfx = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
-            
-            #rename columns in singleResponse_df
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Locus'] <- 'Locus'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.LocusType'] <- 'LocusType'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Period'] <- 'Period'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Blank'] <- 'Blank'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Modification'] <- 'Modification'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.Quantity'] <- 'Quantity'
-            toAdd <- as.data.frame(valuesx$singleResponse_dfx)
-            
-            EquivRecordQuantityUpdated <- EquivRecordSubset$Quantity + toAdd$Quantity
-            EquivRecordUpdateQuery1 <- glue::glue_sql("UPDATE `level2` SET
-                                                      `Quantity` = {EquivRecordQuantityUpdated}
-                                                      WHERE `Locus` = {EquivRecordSubset$Locus}
-                                                      AND `Period` = {EquivRecordSubset$Period}
-                                                      AND `Blank` = {EquivRecordSubset$Blank}
-                                                      AND `Modification` = {EquivRecordSubset$Modification}
-                                                      ", .con = pool)
-            dbExecute(pool, sqlInterpolate(ANSI(), EquivRecordUpdateQuery1))
-            
-            
-            # #re-read the updated table from the database and render it in the data table
-            # output$level2_allDT <- DT::renderDataTable({
-            #   datatable(pool %>% tbl("level2") %>% collect(),
-            #             extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-            # })
-            # 
-            # #update the level2_mysource
-            # level2_mysource <<- reactive({
-            #   pool %>% tbl("level2") %>% collect()
-            #})
-          }
-        })
+        Level3 <- dbReadTable(pool, 'level3')
+        Level3FilterResults <- filter(Level3, Blank=="None")
+        output$Level3Table <- DT::renderDataTable(
+          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell")))
       }
       
-      #upon submitting field values, expand the response based on the value on the Quantity field
-      #the expandRows command is part of the splitstackshape package
-      ValuesToExpand <- reactiveValues(singleResponse_df = data.frame(input$Locus, input$LocusType, input$Period, input$Blank, input$Modification, input$Quantity))
+      
+    })
+    
+    
+    # tabIndex <- 1:6
+    # observeEvent(input$Level3Table_cells_selected, {
+    #   showTab(inputId = "MyTabs", target = "Photos")
+    #   appendTab("myTabs", tabPanel(tabIndex[2]), select = TRUE)
+    # })
+    # observeEvent(input$removeTab, {
+    #   removeTab("myTabs", target=input$myTabs)
+    # })
+    # 
+    
+    #-----/TableFilters-----#
+    
+    #-----New IDs-----#
+    Level3 <- dbReadTable(pool, 'level3')
+    ArtefactNumbers <- as.character(Level3$ArtefactID)
+    ArtefactNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", ArtefactNumbers))
+    HightestAR <- max(ArtefactNumbers_int)
+    NewAR <-  paste0("AR", HightestAR + 1)
+    if (str_length(NewAR) < 8) {
+      ExtraZeroesAR_quant <- 8 - str_length(NewAR)
+      ExtraZeroesAR <- str_dup("0", ExtraZeroesAR_quant)
+      FixedPrefixAR <- paste0("AR", ExtraZeroesAR)
+      NewAR <- gsub("(^..)", FixedPrefixAR, NewAR)
+    }
+    
+    Photos <- dbReadTable(pool, 'photos')
+    PhotoNumbers <- as.character(Photos$PhotoID)
+    PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
+    HightestPH <- max(PhotoNumbers_int)
+    NewPH <-  paste0("PH", HightestPH + 1)
+    if (str_length(NewPH) < 7) {
+      ExtraZeroesPH_quant <- 7 - str_length(NewPH)
+      ExtraZeroesPH <- str_dup("0", ExtraZeroesPH_quant)
+      FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
+      NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
+    }
+    
+    Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
+    IllustrationNumbers <- as.character(Illustrations$IllustrationNumber) 
+    IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
+    HightestDR <- max(IllustrationNumbers_int)
+    NewDR <-  paste0("DR", HightestDR + 1) 
+    if (str_length(NewDR) < 6) {
+      ExtraZeroesDR_quant <- 6 - str_length(NewDR)
+      ExtraZeroesDR <- str_dup("0", ExtraZeroesDR_quant)
+      FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
+      NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
+    }
+    
+    #-----/New Ids-----#
+    
+    #-----NewRecords-----#
+    
+    observeEvent(input$submit, {
+      query <- reactive({
+        if (input$NewLocusType != "XFind") {
+          EquivRecord <- dbReadTable(pool, 'level2')
+          EquivRecordFilter <- data.frame()
+          EquivRecordFilter <- reactive({
+            select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
+          })
+          EquivRecordFilter_df <<- EquivRecordFilter()
+          
+          if (nrow(EquivRecordFilter_df) == 0) {
+            values <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
+            
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
+            
+            NewRecord <<- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
+            NewRecord$Locus <- as.character(NewRecord$Locus)
+            NewRecord$LocusType <- as.character(NewRecord$LocusType)
+            NewRecord$Period <- as.character(NewRecord$Period)
+            NewRecord$Blank <- as.character(NewRecord$Blank)
+            NewRecord$Modification <- as.character(NewRecord$Modification)
+            NewRecord$Quantity <- as.numeric(NewRecord$Quantity)
+            
+            WriteNewLevel2Record <- glue::glue_sql("INSERT INTO `level2` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `Quantity`) VALUES ({NewRecord$Locus}, {NewRecord$LocusType}, {NewRecord$Period}, {NewRecord$Blank}, {NewRecord$Modification}, {NewRecord$Quantity})", .con = pool)
+            
+            WriteNewLevel2Record <<- as.character(WriteNewLevel2Record)
+            WriteNewLevel2Record
+            queryx <<- as.character(WriteNewLevel2Record)
+            queryx
+            UpdateExistingLevel2Record <<- NULL
+            
+            message1 <- paste0("New record added to Level2 table: ","[",NewRecord$LocusType,"/",NewRecord$Locus,"/",NewRecord$Period,"/",NewRecord$Blank,"/",NewRecord$Modification,"/",NewRecord$Quantity,"].")
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message1,
+                                      Timestamp = as.character(Sys.time()),
+                                      stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
+            output$x3 <- renderPrint(message1)
+            
+          }
+          
+          if (nrow(EquivRecordFilter_df) > 0) {
+            valuesx <- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
+            
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <- 'Locus'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPeriod'] <- 'Period'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewBlank'] <- 'Blank'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewModification'] <- 'Modification'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewQuantity'] <- 'Quantity'
+            
+            toAdd <- as.data.frame(valuesx$singleResponse_dfx, stringsAsFactors = FALSE)
+            
+            EquivRecordQuantityUpdated <- EquivRecordFilter_df$Quantity + toAdd$Quantity
+            UpdateExistingLevel2Record <- glue::glue_sql("UPDATE `level2` SET `Quantity` = {EquivRecordQuantityUpdated} WHERE `Locus` = {EquivRecordFilter_df$Locus} AND `Period` = {EquivRecordFilter_df$Period} AND `Blank` = {EquivRecordFilter_df$Blank} AND `Modification` = {EquivRecordFilter_df$Modification}", .con = pool)
+            
+            UpdateExistingLevel2Record <<- as.character(UpdateExistingLevel2Record)
+            UpdateExistingLevel2Record
+            queryx <<- as.character(UpdateExistingLevel2Record)
+            queryx
+            WriteNewLevel2Record <<- NULL
+            
+            message2 <- paste0(toAdd$Quantity," lithics added to existing batch of ",EquivRecordFilter_df$Quantity," records with configuration: [",EquivRecordFilter_df$LocusType,"/",EquivRecordFilter_df$Locus,"/",EquivRecordFilter_df$Period,"/",EquivRecordFilter_df$Blank,"/",EquivRecordFilter_df$Modification,"]. There are now ",EquivRecordQuantityUpdated," records of that configuration.")
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message2,
+                                      Timestamp = as.character(Sys.time()),
+                                      stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
+            output$x3 <- renderPrint(message2)
+            
+          }
+        }
+        else {
+          #do the xfind stuff here
+        }
+      })
+      
+      query <<- query()
+      dbExecute(pool, sqlInterpolate(ANSI(), queryx))
+      
+      
+      ValuesToExpand <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
       toExpand <- as.data.frame(ValuesToExpand$singleResponse_df)
       singleRow_expanded <- expandRows(toExpand, count = 6, count.is.col = TRUE, drop = TRUE)
-      #still needs a mechanism that adds or removes records/rows if the Quantity field is updated after editing the data table
       
-      #add columns to the expanded table
       singleRow_expanded$ArtefactID <- ""
       singleRow_expanded$WrittenOnArtefact <- ""
       singleRow_expanded$Illustration <- ""
@@ -328,273 +511,214 @@ shinyApp(
       singleRow_expanded <- singleRow_expanded[c(0:12)]
       singleRow_expanded <- data.frame(lapply(singleRow_expanded, as.character), stringsAsFactors = FALSE)
       
-      #rename columns in the expanded table
-      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.Locus'] <- 'Locus'
-      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.LocusType'] <- 'LocusType'
-      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.Period'] <- 'Period'
-      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.Blank'] <- 'Blank'
-      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.Modification'] <- 'Modification'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewBlank'] <- 'Blank'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewModification'] <- 'Modification'
       
-      #write the new expanded rows to the level3 table in the database
       write_level3 <- dbWriteTable(pool, "level3", singleRow_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
       write_level3
       
-      #read the updated level3 table from the database
-      output$level3_allDT <- DT::renderDataTable({
-        datatable(pool %>% tbl("level3") %>% collect(),
-                  extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-      })
+      Level2 <- dbReadTable(pool, 'level2')
+      output$NewLevel2Table <- DT::renderDataTable(
+        datatable(Level2[,-1], rownames = FALSE))
       
-      #update level3_mysource in the global environment
-      level3_mysource <<- reactive({
-        pool %>% tbl("level3") %>% collect()
-      })
+      Level3 <- dbReadTable(pool, 'level3')
+      output$NewLevel3Table <- DT::renderDataTable(
+        datatable(Level3[,-1], rownames = FALSE))
+      
+      
+      
     })
     
+    #-----/NewRecords-----#
     
-    #borrowed all of below from https://github.com/MangoTheCat/dtdbshiny
-    #generate reactive values
-    level2_rvs <- reactiveValues(
+    #-----UpdateRecords-----#
+    
+    Level2_rvs <- reactiveValues(
       data = NA,
       dbdata = NA,
       dataSame = TRUE,
       editedInfo = NA
     )
-    
-    #generate source via reactive expression
-    level2_mysource <- reactive({
+    Level2_mysource <- reactive({
       pool %>% tbl("level2") %>% collect()
     })
-    
-    # Observe the source, update reactive values accordingly
-    observeEvent(level2_mysource(), {
-      # Lightly format data by arranging id
-      # Not sure why disordered after sending UPDATE query in db    
-      level2_data <- level2_mysource() %>% arrange(id)
-      level2_rvs$data <- level2_data
-      level2_rvs$dbdata <- level2_data
+    observeEvent(Level2_mysource(), {
+      Level2_data <- Level2_mysource() %>% arrange(id)
+      Level2_rvs$data <- Level2_data
+      Level2_rvs$dbdata <- Level2_data
     })
+    proxy1 = dataTableProxy('QueryResultsXX')
     
-    # Render DT table and edit cell
-    # 
-    # no curly bracket inside renderDataTable
-    # selection better be none
-    # editable must be TRUE
-    output$level2_allDT <- DT::renderDataTable(
-      level2_rvs$data, extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-    
-    proxy2 = dataTableProxy('level2_allDT')
-    
-    observeEvent(input$level2_allDT_cell_edit, {
-      
-      info = input$level2_allDT_cell_edit
-      
+    observeEvent(input$Level2Table_cell_edit, {
+      info = input$Level2Table_cell_edit
       i = info$row
-      j = info$col = info$col + 1  # column index offset by 1
+      j = info$col
       v = info$value
+      info$id <- to_index$id
+      str(info)
       
-      level2_rvs$data[i, j] <<- DT::coerceValue(v, dplyr::pull(level2_rvs$data[i, j]))
-      replaceData(proxy2, level2_rvs$data, resetPaging = FALSE, rownames = FALSE)
-      
-      level2_rvs$dataSame <- identical(level2_rvs$data, level2_rvs$dbdata)
-      
-      if (all(is.na(level2_rvs$editedInfo))) {
-        level2_rvs$editedInfo <- data.frame(info, stringsAsFactors = FALSE)
+      Level2_rvs$data[i, j] <<- DT::coerceValue(v, dplyr::pull(Level2_rvs$data[i, j]))
+      replaceData(proxy1, Level2_rvs$data, resetPaging = FALSE, rownames = FALSE)
+      Level2_rvs$dataSame <- identical(Level2_rvs$data, Level2_rvs$dbdata)
+      if (all(is.na(Level2_rvs$editedInfo))) {
+        Level2_rvs$editedInfo <- data.frame(info, stringsAsFactors = FALSE)
       } else {
-        level2_rvs$editedInfo <- dplyr::bind_rows(level2_rvs$editedInfo, data.frame(info, stringsAsFactors = FALSE))
+        Level2_rvs$editedInfo <- dplyr::bind_rows(Level2_rvs$editedInfo, data.frame(info, stringsAsFactors = FALSE))
       }
-      
     })
     
-    #update edited values in db once save is clicked
-    observeEvent(input$level2_save, {
-      updateDB(editedValue = level2_rvs$editedInfo, pool = pool, tbl = "level2")
-      level2_rvs$dbdata <- level2_rvs$data
-      level2_rvs$dataSame <- TRUE
-      #re-read the updated table from the database and render it in the data table
-      output$level2_allDT <- DT::renderDataTable({
-        datatable(pool %>% tbl("level2") %>% collect(),
-                  extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-      })
-    })
-    
-    #now for level 3
-    #generate reactive values
-    level3_rvs <- reactiveValues(
-      data = NA,
-      dbdata = NA,
-      dataSame = TRUE,
-      editedInfo = NA
-    )
-    
-    #generate source via reactive expression
-    level3_mysource <- reactive({
-      pool %>% tbl("level3") %>% collect()
-    })
-    
-    # Observe the source, update reactive values accordingly
-    observeEvent(level3_mysource(), {
+    observeEvent(input$UpdateButton, {
+      editedValue = Level2_rvs$editedInfo
+      editedValue <- editedValue %>%
+        group_by(row, col) %>%
+        filter(value == dplyr::last(value) | is.na(value)) %>%
+        ungroup()
       
-      # Lightly format data by arranging id
-      # Not sure why disordered after sending UPDATE query in db    
-      level3_data <- level3_mysource() %>% arrange(id)
+      editedValueForSelectedRow <<- subset(editedValue, editedValue$row %in% SelectedRowUpdate())
+      Level2RowBeforeChanged <<- subset(Level2_rvs$dbdata, id %in% editedValueForSelectedRow$id)
+      Level2RowAfterChanged <<- subset(Level2_rvs$data, id %in% editedValueForSelectedRow$id)
+      Level3 <- dbReadTable(pool, 'level3')
+      Level3Filtered <<- Level3 %>%
+        filter(Locus == as.character(Level2RowBeforeChanged[,2])) %>%
+        filter(LocusType == as.character(Level2RowBeforeChanged[,3])) %>%
+        filter(Period == as.character(Level2RowBeforeChanged[,4])) %>%
+        filter(Blank == as.character(Level2RowBeforeChanged[,5])) %>%
+        filter(Modification == as.character(Level2RowBeforeChanged[,6]))
+      ExistingLevel3_Locus <- as.character(Level2RowBeforeChanged[,2])
+      ExistingLevel3_LocusType <- as.character(Level2RowBeforeChanged[,3])
+      ExistingLevel3_Period <- as.character(Level2RowBeforeChanged[,4])
+      ExistingLevel3_Blank <- as.character(Level2RowBeforeChanged[,5])
+      ExistingLevel3_Modification <- as.character(Level2RowBeforeChanged[,6])
       
-      level3_rvs$data <- level3_data
-      level3_rvs$dbdata <- level3_data
-      
-    })
-    
-    # Render DT table and edit cell
-    # 
-    # no curly bracket inside renderDataTable
-    # selection better be none
-    # editable must be TRUE
-    output$level3_allDT <- DT::renderDataTable(
-      level3_rvs$data, extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-    
-    proxy3 = dataTableProxy('level3_allDT')
-    
-    observeEvent(input$level3_allDT_cell_edit, {
-      
-      info = input$level3_allDT_cell_edit
-      
-      i = info$row
-      j = info$col = info$col + 1  # column index offset by 1
-      v = info$value
-      
-      level3_rvs$data[i, j] <<- DT::coerceValue(v, dplyr::pull(level3_rvs$data[i, j]))
-      replaceData(proxy3, level3_rvs$data, resetPaging = FALSE, rownames = FALSE)
-      
-      level3_rvs$dataSame <- identical(level3_rvs$data, level3_rvs$dbdata)
-      
-      if (all(is.na(level3_rvs$editedInfo))) {
-        level3_rvs$editedInfo <- data.frame(info, stringsAsFactors = FALSE)
-      } else {
-        level3_rvs$editedInfo <- dplyr::bind_rows(level3_rvs$editedInfo, data.frame(info, stringsAsFactors = FALSE))
-      }
-      
-    })
-    
-    #update edited values in db once save is clicked
-    observeEvent(input$level3_save, {
-      updateDB(editedValue = level3_rvs$editedInfo, pool = pool, tbl = "level3")
-      level3_rvs$dbdata <- level3_rvs$data
-      level3_rvs$dataSame <- TRUE
-      #re-read the updated table from the database and render it in the data table
-      output$level3_allDT <- DT::renderDataTable({
-        datatable(pool %>% tbl("level3") %>% collect(),
-                  extensions = 'Buttons', filter="top", rownames = FALSE, selection = "none", editable = TRUE)
-      })
-    })
-    
-    
-    #render ui for adding new blanks and modifications
-    output$newBlankMod <- renderUI({
-      div(
-        if (input$toggleNewBlankMod %% 2 == 1) {
-          span(
-            fluidRow(
-              column(width = 2,
-                     textInput(inputId = "newBlank", label = "New Blank")),
-              column(width = 2,
-                     textInput(inputId = "newModification", label = "New Modification")),
-              column(width = 3,
-                     selectInput("newBlankModPeriod", "Period", choices = c("Lower Palaeolithic", "Lower / Middle Palaeolithic", "Middle Palaeolithic", "Middle / Upper Palaeolithic", "Upper Palaeolithic", "Upper Palaeolithic / Mesolithic", "Mesolithic", "Late Neolithic / Final Neolithic", "Final Neolithic / Early Bronze Age", "NonDiagnostic"), multiple = FALSE))
-            ), #had to limit the selection to 1 period per entry, enabling multiple posed problems with generating a table to write to the database that I could not yet figure out
-            fluidRow(
-              column(width = 2,
-                     actionButton("submitBlank", "Submit Blank")),
-              column(width = 2,
-                     actionButton("submitModification", "Submit Modification")),
-              column(width = 6,
-                     textOutput("message"))
-            )
-          )
-        } else {
-          span()
-        }
-      )
-    })
-    
-    
-    observeEvent(input$submitBlank, {
-      #collect reactive values pertaining to the entered values and coerce the data types
-      newBlankResponses <- reactiveValues(
-        Blank = input$newBlank, Period = input$newBlankModPeriod)
-      newBlankValue <- as.character(newBlankResponses$Blank)
-      newBlankPeriodValue <- as.character(newBlankResponses$Period) #would be courced as a list for new looping method described below
-      
-      #collect and subset the list of existing blanks and limit action based on whether the blank already exists
-      filteredBlanks <- data.frame(
-        select(filter(blanks, Period == input$newBlankModPeriod), Blank))
-      if (any(filteredBlanks$Blank == newBlankValue) == FALSE) {
-        #generate and execute SQL INSERT statement
-        newBlankInsert <- glue::glue_sql("INSERT INTO `blanks_excavation` (`Blank`, `Period`) VALUES ({newBlankValue}, {newBlankPeriodValue})"
-                                         , .con = pool)
-        dbExecute(pool, sqlInterpolate(ANSI(), newBlankInsert))
-        blanks <<- dbReadTable(pool, 'blanks_excavation')
-        blankChoices <- reactive({
-          select(filter(blanks, Period==input$Period), Blank)
+      QuantityWoAR <- as.numeric(nrow(filter(Level3Filtered, WrittenOnArtefact == "Yes")))
+      if (length(editedValueForSelectedRow) & QuantityWoAR == 0) {
+        lapply(seq_len(nrow(editedValueForSelectedRow)), function(i){
+          id = editedValueForSelectedRow$id[i]
+          col = dbListFields(pool, 'level2')[editedValueForSelectedRow$col[i]]
+          value = editedValueForSelectedRow$value[i]
+          
+          UpdateLevel2Records <<- glue::glue_sql("UPDATE `level2` SET {`col`} = {value} WHERE id = {id}", .con = pool)
+          UpdateCorrespondingLevel3Records <<- glue::glue_sql("UPDATE `level3` SET {`col`} = {value} WHERE Locus = {ExistingLevel3_Locus} AND LocusType = {ExistingLevel3_LocusType} AND Period = {ExistingLevel3_Period} AND Blank = {ExistingLevel3_Blank} AND Modification = {ExistingLevel3_Modification}", .con = pool)
+          dbExecute(pool, sqlInterpolate(ANSI(), UpdateLevel2Records))
+          dbExecute(pool, sqlInterpolate(ANSI(), UpdateCorrespondingLevel3Records))
         })
-        observe({
-          selectedBlank <- blankChoices()
-          updateSelectInput(session, inputId = "Blank", choices=c(selectedBlank[[1]]))
-        })
-        message1 <- paste0(newBlankValue, " added as Blank for ", newBlankPeriodValue, " Period.")
-        output$message <- renderText({message1})
       }
-      else { output$message <- renderText({print("That Blank already exists for this Period")})}
-      
-      #could potentially be used to loop through items in a list of periods, applying the same newBlankValue for each one, but some work is still needed to get this to work
-      #  var1 <- newBlankValue
-      #  var2 <- newBlankPeriodValue
-      #  for(i in 1:length(var2)){
-      #    req <- paste("INSERT INTO `blanks_excavation` (`Blank`, `Period`) VALUES   
-      #                 (",var1[i],",",var2[i],")",sep="")
-      
-      
-      
-      observeEvent(input$submitModification, {
-        #collect reactive values pertaining to the entered values and coerce the data types
-        newModificationResponses <- reactiveValues(
-          Modification = input$newModification, Period = input$newBlankModPeriod)
-        newModificationValue <- as.character(newModificationResponses$Modification)
-        newModificationPeriodValue <- as.character(newModificationResponses$Period) #would be courced as a list for new looping method described below
+      if (!length(editedValueForSelectedRow)) {
+        output$x2 <- renderPrint("This record has not been changed. There is nothing to update.")
+      }
+      if (length(editedValueForSelectedRow) & QuantityWoAR > 0) {
+        OverwritenWoARModalDT <- filter(Level3Filtered, WrittenOnArtefact == "Yes")
+        OverwritenWoARModalDT <- OverwritenWoARModalDT[,-1]
+        OverwritenWoARModalDT <- OverwritenWoARModalDT[,-7]
         
-        #collect and subset the list of existing modifications and limit action based on whether the blank already exists
-        filteredModifications <- data.frame(
-          select(filter(modifications, Period == input$newBlankModPeriod), Modification))
-        if (any(filteredModifications$Modification == newModificationValue) == FALSE) {
-          #generate and execute SQL INSERT statement
-          newModificationInsert <- glue::glue_sql("INSERT INTO `modifications_excavation` (`Modification`, `Period`) VALUES ({newModificationValue}, {newModificationPeriodValue})"
-                                                  , .con = pool)
-          dbExecute(pool, sqlInterpolate(ANSI(), newModificationInsert))
-          modifications <<- dbReadTable(pool, 'modifications_excavation')
-          modificationChoices <- reactive({
-            select(filter(modifications, Period==input$Period), Modification)
+        showModal(modalDialog(title = "Warning!",
+                              paste0("These changes will also modify data pertaining to ",QuantityWoAR," artefacts whose ArtefactIDs have already been written on the phyical artefacts. Please ensure that these changes reflect the actual characteristics of these items, and move them to their new bag [",Level2RowAfterChanged$Locus,"/",Level2RowAfterChanged$Period,"/",Level2RowAfterChanged$Blank,"/",Level2RowAfterChanged$Modification,"] if you decide to proceed. To confirm these changes, press Confirm. To abort, press Cancel"),
+                              DT::renderDataTable(datatable(OverwritenWoARModalDT, rownames = FALSE, editable = FALSE, options=list(scrollX=TRUE))),
+                              footer = tagList(
+                                actionButton('WoAR_OverWrite_Cancel',"Cancel"),
+                                actionButton('WoAR_OverWrite_Confirm', "Confirm")),
+                              easyClose = FALSE,
+                              size = "l",
+                              fade = FALSE
+        ))
+        
+        observeEvent(input$WoAR_OverWrite_Cancel, {
+          removeModal()
+        })
+        
+        observeEvent(input$WoAR_OverWrite_Confirm, {
+          lapply(seq_len(nrow(editedValueForSelectedRow)), function(i){
+            id = editedValueForSelectedRow$id[i]
+            col = dbListFields(pool, 'level2')[editedValueForSelectedRow$col[i]]
+            value = editedValueForSelectedRow$value[i]
+            UpdateLevel2Records <<- glue::glue_sql("UPDATE `level2` SET {`col`} = {value} WHERE id = {id}", .con = pool)
+            UpdateCorrespondingLevel3Records <<- glue::glue_sql("UPDATE `level3` SET {`col`} = {value} WHERE Locus = {ExistingLevel3_Locus} AND LocusType = {ExistingLevel3_LocusType} AND Period = {ExistingLevel3_Period} AND Blank = {ExistingLevel3_Blank} AND Modification = {ExistingLevel3_Modification}", .con = pool)
+            dbExecute(pool, sqlInterpolate(ANSI(), UpdateLevel2Records))
+            dbExecute(pool, sqlInterpolate(ANSI(), UpdateCorrespondingLevel3Records))
           })
-          observe({
-            selectedModification <- modificationChoices()
-            updateSelectInput(session, inputId = "Modification", choices=c(selectedModification[[1]]))
-          })
-          message2 <- paste0(newModificationValue, " added as Modification for ", newModificationPeriodValue, " Period.")
-          output$message <- renderText({message2})
-        }
-        else { output$message <- renderText({print("That Modification already exists for this Period")})}
+          removeModal()
+        })
+      }
+      
+      Level2 <- dbReadTable(pool, 'level2')
+      Level2RowAfterChanged <<- subset(Level2, id %in% editedValueForSelectedRow$id)
+      
+      NewLevel3_Locus <- as.character(Level2RowAfterChanged[,2])
+      NewLevel3_LocusType <- as.character(Level2RowAfterChanged[,3])
+      NewLevel3_Period <- as.character(Level2RowAfterChanged[,4])
+      NewLevel3_Blank <- as.character(Level2RowAfterChanged[,5])
+      NewLevel3_Modification <- as.character(Level2RowAfterChanged[,6])
+      
+      updateSelectizeInput(session, "Locus", selected = NewLevel3_Locus)
+      updateSelectizeInput(session, "LocusType", selected = NewLevel3_LocusType)
+      updateSelectizeInput(session, "Period", selected = NewLevel3_Period)
+      updateSelectizeInput(session, "Blank", selected = NewLevel3_Blank)
+      updateSelectizeInput(session, "Modification", selected = NewLevel3_Modification)
+      
+     # QueryInputs  <- data.frame(Locus = NULL, Blank = NULL, Modification = NULL, Period = NULL)   
+    #  QueryInputs  <<- data.frame(Locus = ifelse(!is.null(input$Locus), input$Locus, NULL), Blank = ifelse(!is.null(input$Blank), input$Blank, NULL), Modification = ifelse(!is.null(input$Modification), input$Modification, NULL), Period = ifelse(!is.null(input$Period), input$Period, NULL))
+      QueryTermLocus <- ifelse(!is.null(input$Locus), input$Locus, "")
+      QueryTermPeriod <- ifelse(!is.null(input$Period), input$Period, "")
+      QueryTermBlank <- ifelse(!is.null(input$Blank), input$Blank, "")
+      QueryTermModification <- ifelse(!is.null(input$Modification), input$Modification, "")
+      QueryInputs <<- data.frame(Locus = QueryTermLocus, Blank = QueryTermBlank, Modification = QueryTermModification, Period = QueryTermPeriod)
+      CurrentResults <- QueryResults(QueryInputs)
+      
+      Level2 <- dbReadTable(pool, 'level2')
+      EmptyDT <- filter(CurrentResults, LocusType=="blah")
+      
+      if (nrow(CurrentResults) == nrow(Level2)) {
+        output$Level2Table <- renderDataTable(datatable(EmptyDT[,-1]))
+        output$x2 <- renderPrint("Identical to the complete set of Level2 records")
+      }
+      
+      if (nrow(CurrentResults) == 0) {
+        output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+        output$Level2Table <- renderDataTable(datatable(CurrentResults[,-1]))
+      }
+      
+      if (nrow(CurrentResults) > 0 & nrow(CurrentResults) != nrow(Level2)) {
+        QueryResultsxx <- reactive({
+          withUpdateButton <- as.data.frame(cbind(Update = shinyInput(actionButton, nrow(CurrentResults), 'button_', label = "Update", onclick = 'Shiny.onInputChange(\"UpdateButton\", this.id)'), CurrentResults))
+          withDeleteButton <- as.data.frame(cbind(Delete = shinyInput(actionButton, nrow(CurrentResults), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"DeleteButton\", this.id)'), withUpdateButton))
+        })
         
-        #could potentially be used to loop through items in a list of periods, applying the same newModificationValue for each one, but some work is still needed to get this to work
-        #  var1 <- newModificationValue
-        #  var2 <- newModificationPeriodValue
-        #  for(i in 1:length(var2)){
-        #    req <- paste("INSERT INTO `modifications_excavation` (`Modification`, `Period`) VALUES   
-        #                 (",var1[i],",",var2[i],")",sep="")
+        QueryResultsXX <<- QueryResultsxx()
         
-      })
+        SelectedRowUpdate <<- eventReactive(input$UpdateButton, {
+          as.numeric(strsplit(input$UpdateButton, "_")[[1]][2])
+        })
+        SelectedRowDelete <<- eventReactive(input$DeleteButton, {
+          as.numeric(strsplit(input$DeleteButton, "_")[[1]][2])
+        })
+        
+        
+        output$Level2Table <- DT::renderDataTable(
+          datatable(QueryResultsXX[,-3], escape = FALSE, rownames = FALSE, selection = list(mode = "single", target = "row", editable = TRUE), options = list(autowidth = TRUE,columnDefs = list(list(targets=c(0,1,2,7,9), width='50'), list(targets=c(3,4,5,6), width='100')))))
+        to_index <<- QueryResultsXX[,-c(1,2)]
+      }
+      
+      Level2_rvs$dbdata <- Level2_rvs$data
+      Level2_rvs$dataSame <- TRUE
       
       
     })
     
     
-  })
+    
+    
+    #-----/UpdateRecords-----#
+    
+    #-----ActivityLog-----#
+    activitylog <- dbReadTable(pool, 'activitylog')
+    activitylog
+    output$ActivityLogDisplay <- renderDataTable(datatable(activitylog[,-1], rownames = FALSE, selection=list(mode="single", target="row"), options=list(order=list(list(1, 'desc')), pageLength=20)))
+    
+    #-----/ActivityLog-----#
+    
+  }
+)
 shinyApp(ui, server)
-
