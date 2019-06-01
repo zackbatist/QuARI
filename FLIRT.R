@@ -73,12 +73,19 @@ shinyApp(
                                   selectizeInput("Blank", "Blank", choices = c("", blanks$Blank), multiple = TRUE, selected = "")),
                            column(width = 2,
                                   selectizeInput("Modification", "Modification", choices = c("", modifications$Modification), multiple = TRUE, selected = "")),
-                           column(width = 2,
-                                  actionButton("ClearInputs", "Clear Inputs")),
                            column(3, verbatimTextOutput("x1")),
                            column(3, verbatimTextOutput("x2"))
                          ),
-                         actionButton("query", "Query"),
+                         fluidRow(
+                           column(width = 1,
+                                  actionButton("query", "Clear Query")),
+                           column(width = 1,
+                                  actionButton("ClearInputs", "Clear Inputs")),
+                           column(width = 6,
+                                  wellPanel(
+                                    textOutput("SummaryInfo"))
+                               )
+                         ),
                          hr(),
                          tabsetPanel(id = "myTabs", type = "tabs",
                                      tabPanel("Level 2 Selection",
@@ -124,6 +131,16 @@ shinyApp(
                                   selectizeInput("NewModification", "Modification", choices = c("", modifications$Modification), multiple = FALSE, selected = "")),
                            column(width = 1,
                                   numericInput("NewQuantity", "Quantity", "1"))
+                         ),
+                         fluidRow(
+                           column(width = 2,
+                                  selectInput("NewRawMaterial","Raw Material", c(Choose = '', 'Type A', 'Type B', 'Type C', 'Type D', 'Type E', 'Type F'), selectize = TRUE)),
+                           column(width = 2,
+                                  selectInput("NewWeathering","Weathering", c(Choose = '', "Weathered", "Very Weathered", "Extremely Weathered"), selectize = TRUE)),
+                           column(width = 2,
+                                  selectInput("NewPatination","Patination", c(Choose = '', "Patinated"), selectize = TRUE)),
+                           column(width = 2,
+                                  selectInput("NewBurned","Burned", c(Choose = '', "Burned"), selectize = TRUE))
                          ),
                          actionButton("submit", "Submit"),
                          actionButton("toggleNewBlankMod", "New Blank or Modification"),
@@ -228,6 +245,12 @@ shinyApp(
       filtered
     }
     
+    ## query should return summary info about the query results ##
+    #Take object resulting from query (filtered table) and use rowsum() on Quantity column to return total number of artifacts returned by query
+    #Take locus IDs from filtered table and use those to filter Level3 table; with resulting object (filtered Level3 table), use summary() or whatever to count number of artifacts with associated Illustration IDs and/or associated Photo IDs to return number of artifacts from query that have been drawn and/or photo'd
+    
+    
+    
     observeEvent(input$query, {
       #QueryInputs  <<- data.frame(Locus = NULL, Blank = NULL, Modification = NULL, Period = NULL)   
       QueryTermLocus <- if(!is.null(input$Locus)) {input$Locus} else {""}
@@ -280,47 +303,68 @@ shinyApp(
       
       if (length(sel)) {  #alternative that allows selection of multiple rows
         Level2IndexValues <- sel
-        Level3Selection <<- to_index[Level2IndexValues, c(2,4,5,6)]
+        Level3Selection <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
         Level3 <- dbReadTable(pool, 'level3')
         
         #------------
         #select a cell to generate new table with rows/artifact which is to be filled in
-       # BlankMod_index <- reactive({input$Level2_Table_cells_selected})
+        # BlankMod_index <- reactive({input$Level2_Table_cells_selected})
         
         #when a Level 2 row is selected, generate Level3FilterResults; then check to see if nrow(Level3FilterResults) is equal to the quantity in the selected Level 2 row. If it is, no further action needed (Level 3 table generated anyway).  If the number of existing Level 3 records is less than the quantity in the selected Level 2 row, generate Level 3 records to make up the difference.  Compare sel$Quantity to nrow(Level3FilterResults). If nrow(Level3FilterResults) < sel$Quantity , calculate difference, and then get updated Level3 table and generate next n records, filling them with values from sel. For each selected row in sel, go through this process separately (in for loop?).
         
-        BlankMod_table <- reactive({    ##should happen when new Level2 record created
-        #  BlankMod_indexed <- BlankMod_index()
-          existingLevel3 <- Level3[Level3$Locus %in% Level3Selection$Locus,]  
-          nrow(existingLevel3) < Level3Selection$Quantity
-          
-          BlankMod_table_a <- matrix(nrow=Level3[Level3Selection[1],Level3Selection[2]], ncol=10) #create object of nrows determined by value of selected cell and ncol determined by our Artifact ID table needs  ##probably should precede this by a search for any ArtifactIDs attached to artifacts from the selected cell
-          if (nrow(BlankMod_table_a) > 0) {
-            artifactIDs <- paste0("AR",seq(1,nrow(BlankMod_table_a),by=1)) #get artifact IDs (placeholder system for now; last ArtifactID will have to get retrieved from table of artifact IDs and these increment on from there, e.g. last(ArtifactIDTable$ID))
-            BlankMod_table_a[,1] <- artifactIDs  
-            knownvals <- cbind(allSurvey.transects.grids.grabs[BlankMod_indexed[1],c(3,1,2,4)], colnames(allSurvey.transects.grids.grabs)[BlankMod_indexed[2]]) #retrieve available values from allSurvey.transects.grids.grabs
-            BlankMod_table_a <- data.frame(BlankMod_table_a) 
-            colnames(BlankMod_table_a) <- c("ArtifactID", "Specifically_Assigned","Source","CollectionPointID","Period","Blank","Modification","Drawing","Raw_Material","Weathering")
-            BlankMod_table_a[,3:7] <- knownvals
-          }
-          return(BlankMod_table_a)
-        })
-        
-        observeEvent(input$Level2_Table_cells_selected, {
-          output$Level3_artifacttable <- DT::renderDataTable(datatable(BlankMod_table(), editable=T))
-        })
-        
+        # BlankMod_table <- reactive({    ##should happen when new Level2 record created
+        #   #  BlankMod_indexed <- BlankMod_index()
+        #   existingLevel3 <- Level3[Level3$Locus %in% Level3Selection$Locus,]  
+        #   nrow(existingLevel3) < Level3Selection$Quantity
+        #   
+        #   BlankMod_table_a <- matrix(nrow=Level3[Level3Selection[1],Level3Selection[2]], ncol=10) #create object of nrows determined by value of selected cell and ncol determined by our Artifact ID table needs  ##probably should precede this by a search for any ArtifactIDs attached to artifacts from the selected cell
+        #   if (nrow(BlankMod_table_a) > 0) {
+        #     artifactIDs <- paste0("AR",seq(1,nrow(BlankMod_table_a),by=1)) #get artifact IDs (placeholder system for now; last ArtifactID will have to get retrieved from table of artifact IDs and these increment on from there, e.g. last(ArtifactIDTable$ID))
+        #     BlankMod_table_a[,1] <- artifactIDs  
+        #     knownvals <- cbind(allSurvey.transects.grids.grabs[BlankMod_indexed[1],c(3,1,2,4)], colnames(allSurvey.transects.grids.grabs)[BlankMod_indexed[2]]) #retrieve available values from allSurvey.transects.grids.grabs
+        #     BlankMod_table_a <- data.frame(BlankMod_table_a) 
+        #     colnames(BlankMod_table_a) <- c("ArtifactID", "Specifically_Assigned","Source","CollectionPointID","Period","Blank","Modification","Drawing","Raw_Material","Weathering")
+        #     BlankMod_table_a[,3:7] <- knownvals
+        #   }
+        #   return(BlankMod_table_a)
+        # })
+        # 
+        # observeEvent(input$Level2_Table_cells_selected, {
+        #   output$Level3_artifacttable <- DT::renderDataTable(datatable(BlankMod_table(), editable=T))
+        # })
+        # 
         
         
         #-------
         
         Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
         
+        
+        if (nrow(Level3FilterResults) < Level3Selection$Quantity) {
+          j <- 1
+          for (j in (1:length(Level3Selection))) {
+            ArtefactIDQuantityDifference <<- Level3Selection$Quantity - nrow(Level3FilterResults)
+            NewArtefactRecordsFromDifference <<- data.frame(LocusType = as.character(), Locus = as.character(), Blank = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), stringsAsFactors = FALSE)
+            for (l in (1:ArtefactIDQuantityDifference)) {
+              RBindedTable <<- Level3Selection %>% select(LocusType, Locus, Period, Blank, Modification)
+              NewArtefactRecordsFromDifference <<- rbind(NewArtefactRecordsFromDifference, RBindedTable)
+            }
+          }
+            write_level3FromDifference <<- glue::glue_sql("INSERT INTO `level3` (`LocusType`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({NewArtefactRecordsFromDifference$LocusType}, {NewArtefactRecordsFromDifference$Locus}, {NewArtefactRecordsFromDifference$Period}, {NewArtefactRecordsFromDifference$Blank}, {NewArtefactRecordsFromDifference$Modification})", .con = pool)
+            k <- 1
+            for (k in (1:length(write_level3FromDifference))) {
+              dbExecute(pool, write_level3FromDifference[k])
+            }
+            
+            Level3 <- dbReadTable(pool, 'level3')
+            Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+          }
+        
+        
+        
         output$Level3Table <- DT::renderDataTable(
           datatable(Level3FilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = TRUE))
-        
-        
-        
+
         observe({
           SelectedCells <- input$Level3Table_cells_selected
           if (length(SelectedCells)) {
@@ -359,7 +403,7 @@ shinyApp(
             PhotosFilterResults <- filter(Photos, ArtefactID=="None")
             output$PhotosTable <- DT::renderDataTable(
               datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
-          }  
+          }
         })
       }
       else {
@@ -423,25 +467,34 @@ shinyApp(
     #-----/New Ids-----#
     
     #-----NewRecords-----#
-    
     observeEvent(input$submit, {
       query <- reactive({
         if (input$NewLocusType != "XFind") {
-          EquivRecord <- dbReadTable(pool, 'level2')
+          #EquivRecord <- dbReadTable(pool, 'level2')
+          Level3 <- dbReadTable(pool, 'level3')
           EquivRecordFilter <- data.frame()
           EquivRecordFilter <- reactive({
-            select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
-          })
-          EquivRecordFilter_df <<- EquivRecordFilter()
+              select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination)
+            })
+            EquivRecordFilter_df <<- EquivRecordFilter()
+          
+          #EquivRecordFilter <- data.frame()
+          #EquivRecordFilter <- reactive({
+          #  select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
+          #})
+          #EquivRecordFilter_df <<- EquivRecordFilter()
           
           if (nrow(EquivRecordFilter_df) == 0) {
-            values <- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
+            values <- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewQuantity))
             
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
             colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
             colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
             colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
             colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewRawMaterial'] <- 'RawMaterial'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewWeathering'] <- 'Weathering'
+            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPatination'] <- 'Patination'
             colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
             
             NewRecord <<- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
@@ -450,6 +503,9 @@ shinyApp(
             NewRecord$Period <- as.character(NewRecord$Period)
             NewRecord$Blank <- as.character(NewRecord$Blank)
             NewRecord$Modification <- as.character(NewRecord$Modification)
+            NewRecord$RawMaterial <- as.character(NewRecord$RawMaterial)
+            NewRecord$Weathering <- as.character(NewRecord$Weathering)
+            NewRecord$Patination <- as.character(NewRecord$Patination)
             NewRecord$Quantity <- as.numeric(NewRecord$Quantity)
             
             WriteNewLevel2Record <- glue::glue_sql("INSERT INTO `level2` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `Quantity`) VALUES ({NewRecord$Locus}, {NewRecord$LocusType}, {NewRecord$Period}, {NewRecord$Blank}, {NewRecord$Modification}, {NewRecord$Quantity})", .con = pool)
@@ -476,11 +532,14 @@ shinyApp(
           if (nrow(EquivRecordFilter_df) > 0) {
             valuesx <- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
             
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <- 'Locus'
             colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocusType'] <- 'LocusType'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <- 'Locus'
             colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPeriod'] <- 'Period'
             colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewBlank'] <- 'Blank'
             colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewModification'] <- 'Modification'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewRawMaterial'] <- 'RawMaterial'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewWeathering'] <- 'Weathering'
+            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPatination'] <- 'Patination'
             colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewQuantity'] <- 'Quantity'
             
             toAdd <- as.data.frame(valuesx$singleResponse_dfx, stringsAsFactors = FALSE)
@@ -516,18 +575,10 @@ shinyApp(
       dbExecute(pool, sqlInterpolate(ANSI(), queryx))
       
       
-      ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
+      ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewQuantity))
       toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
-      singleRow_expanded <<- expandRows(toExpand, count = 6, count.is.col = TRUE, drop = TRUE)
+      singleRow_expanded <<- expandRows(toExpand, count = 9, count.is.col = TRUE, drop = TRUE)
       
-      singleRow_expanded$ArtefactID <- ""
-      singleRow_expanded$WrittenOnArtefact <- ""
-      singleRow_expanded$Illustration <- ""
-      singleRow_expanded$RawMaterial <- ""
-      singleRow_expanded$Weathering <- ""
-      singleRow_expanded$Patination <- ""
-      singleRow_expanded$Notes <- ""
-      singleRow_expanded <<- singleRow_expanded[c(0:12)]
       singleRow_expanded <<- data.frame(lapply(singleRow_expanded, as.character), stringsAsFactors = FALSE)
       
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
@@ -535,6 +586,9 @@ shinyApp(
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewBlank'] <- 'Blank'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewModification'] <- 'Modification'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewRawMaterial'] <- 'RawMaterial'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewWeathering'] <- 'Weathering'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPatination'] <- 'Patination'
       
       singleRow_expanded <<- singleRow_expanded
       singleRow_expanded$Locus <-as.character(singleRow_expanded$Locus)
@@ -542,9 +596,11 @@ shinyApp(
       singleRow_expanded$Period <-as.character(singleRow_expanded$Period)
       singleRow_expanded$Blank <-as.character(singleRow_expanded$Blank)
       singleRow_expanded$Modification <-as.character(singleRow_expanded$Modification)
+      singleRow_expanded$RawMaterial <-as.character(singleRow_expanded$RawMaterial)
+      singleRow_expanded$Weathering <-as.character(singleRow_expanded$Weathering)
+      singleRow_expanded$Patination <-as.character(singleRow_expanded$Patination)
       
-      write_level3 <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `ArtefactID`, `WrittenOnArtefact`,`Illustration`, `RawMaterial`, `Weathering`,`Patination`,`Notes`) VALUES ({singleRow_expanded$Locus}, {singleRow_expanded$LocusType}, {singleRow_expanded$Period}, {singleRow_expanded$Blank}, {singleRow_expanded$Modification}, {singleRow_expanded$ArtefactID}, {singleRow_expanded$WrittenOnArtefact}, {singleRow_expanded$Illustration}, {singleRow_expanded$RawMaterial}, {singleRow_expanded$Weathering},{singleRow_expanded$Patination},{singleRow_expanded$Notes})", .con = pool)
-      #     write_level3 <- dbWriteTable(pool, "level3", singleRow_expanded, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+      write_level3 <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `RawMaterial`, `Weathering`,`Patination`) VALUES ({singleRow_expanded$Locus}, {singleRow_expanded$LocusType}, {singleRow_expanded$Period}, {singleRow_expanded$Blank}, {singleRow_expanded$Modification}, {singleRow_expanded$RawMaterial}, {singleRow_expanded$Weathering}, {singleRow_expanded$Patination})", .con = pool)
       
       m <- 1
       for (m in (1:length(write_level3))) {
@@ -564,7 +620,10 @@ shinyApp(
       NewTermPeriod <- if(!is.null(input$NewPeriod)) {input$NewPeriod} else {""}
       NewTermBlank <- if(!is.null(input$NewBlank)) {input$NewBlank} else {""}
       NewTermModification <- if(!is.null(input$NewModification)) {input$NewModification} else {""}
-      NewInputs <<- list(Locus = NewTermLocus, Blank = NewTermBlank, Modification = NewTermModification, Period = NewTermPeriod)
+      NewTermRawMaterial <- if(!is.null(input$NewRawMaterial)) {input$NewRawMaterial} else {""}
+      NewTermWeathering <- if(!is.null(input$NewWeathering)) {input$NewWeathering} else {""}
+      NewTermPatination <- if(!is.null(input$NewPatination)) {input$NewPatination} else {""}
+      NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination)
       #QueryInputs  <<- data.frame(Locus = ifelse(!is.null(input$Locus), input$Locus, NULL), Blank = ifelse(!is.null(input$Blank), input$Blank, NULL), Modification = ifelse(!is.null(input$Modification), input$Modification, NULL), Period = ifelse(!is.null(input$Period), input$Period, NULL))
       CurrentResults <<- QueryResults(NewInputs)
       Level2 <- dbReadTable(pool, 'level2')
@@ -601,8 +660,7 @@ shinyApp(
       
     })
     
-    
-    
+
     #-----/NewRecords-----#
     
     #-----EditRecords-----#
@@ -617,7 +675,7 @@ shinyApp(
       # }
       if (length(sel)) {  #alternative that allows selection of multiple rows
         Level2IndexValues <- sel
-        Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6)]
+        Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
         Level3 <- dbReadTable(pool, 'level3')
         Level2FilterResultsEdit <<- filter(Level2, Locus %in% Level3SelectionEdit[,1] & Period %in% Level3SelectionEdit[,2] & Blank %in% Level3SelectionEdit[,3] & Modification %in% Level3SelectionEdit[,4])
         Level3FilterResultsEdit <<- filter(Level3, Locus %in% Level3SelectionEdit[,1] & Period %in% Level3SelectionEdit[,2] & Blank %in% Level3SelectionEdit[,3] & Modification %in% Level3SelectionEdit[,4])
@@ -763,7 +821,7 @@ shinyApp(
         Level3ToBatch <<- Level3ToBatch %>% filter(RawMaterial == "")
         Level3ToBatch <<- Level3ToBatch %>% filter(Weathering == "")
         Level3ToBatch <<- Level3ToBatch %>% filter(Patination == "")
-        Level3ToBatch <<- Level3ToBatch %>% filter(WrittenOnArtefact == "No")
+        Level3ToBatch <<- Level3ToBatch %>% filter(WrittenOnArtefact == "No" | WrittenOnArtefact == "" | is.na(WrittenOnArtefact) == T | is.null(WrittenOnArtefact) == T)
         
         if (nrow(Level3ToBatch) >= SelectedQuantity) {
           n <- SelectedQuantity
@@ -816,21 +874,17 @@ shinyApp(
           # Level3FilterResults <- filter(Level3, Locus==Level3Selection[1] & Period==Level3Selection[2] & Blank==Level3Selection[3] & Modification==Level3Selection[4])
           # output$Level3Table <- DT::renderDataTable(
           #   datatable(Level3FilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = TRUE))
-          Level3Selection <<- to_index[Level2IndexValues, c(2,4,5,6)]
-          Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6)]
+          Level3Selection <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
+          Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
           Level3 <- dbReadTable(pool, 'level3')
           
-          Level3FilterResults <- filter(Level3, Locus %in% Level3Selection[,1] & Period%in%Level3Selection[,2] & Blank%in%Level3Selection[,3] & Modification%in%Level3Selection[,4])
+          Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period%in%Level3Selection[,2] & Blank%in%Level3Selection[,3] & Modification%in%Level3Selection[,4])
           output$Level3Table <- DT::renderDataTable(
             datatable(Level3FilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = TRUE))
           
           Level3FilterResultsEdit <<- filter(Level3, Locus%in%Level3SelectionEdit[,1] & Period%in%Level3SelectionEdit[,2] & Blank==Level3SelectionEdit[,3] & Modification%in%Level3SelectionEdit[,4])
           output$Level3TableModal <- DT::renderDataTable(
             datatable(Level3FilterResultsEdit[,-c(1:6)], rownames = FALSE, selection=list(mode="single", target="cell"), editable = TRUE, escape = FALSE, options = list(scrollX=TRUE, searching =FALSE)))
-          
-          
-          
-          
           
           
           # SelectedRawMaterial <<- ''
@@ -874,7 +928,7 @@ shinyApp(
     })
     
     observeEvent(input$MaxQuantityEdit, {
-      AllRows <- Level2FilterResultsEdit$Quantity
+      AllRows <<- sum(Level2FilterResultsEdit$Quantity)
       updateSelectInput(session, "ModalQuantitySelect", selected = AllRows)
     })
     

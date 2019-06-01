@@ -1,0 +1,22 @@
+# to do
+- individual level3 changes
+- filtering the drop downs on base page
+- x2 outputs, renderprint well panels
+- make unmodified first option or default in modifications dropdowns
+- visual reminder of total on home page, wellpanel on home screen that prints summary information (i.e. total quantity of artefacts, number of artefacts with photos or drawings, etc), for respective query
+- modal title should reflect multiple records or none at all
+- default value in the db's level3 table, specifically columns for weathering, raw material, patination (which are filtered to create Level3ToBatch), need to be tested to work when they have NULL values in them (as opposed to being just blank), and if they fail need to change the default value and all existing values in those columns to blank
+- batch editing level3 records when multiple level2 sets are selected only edits records from the top of the combined set, and does not distribute these changes across the multiple constituent sets. Need to we can stipulate that combined sets can only be batch edited when each are full, and impose limitations on users trying to do what should not be done
+- notes field in creation of single-item (level3) records
+
+# completed
+- close the loop for the new records
+- Remove quantity from base layer
+- clear inputs button
+- add button for 'all quantity' and/or visual reminder for max quantity
+- editing multiple rows
+- write/refresh level3 records as new records are being submitted
+- fix crash upon submit new record
+- fix crash on apply batch update in modal
+- add raw materials select inputs to the new records tab
+- quantity max all in modal needs to reflect new multi-edit index
