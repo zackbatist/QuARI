@@ -58,7 +58,7 @@ contexts <- dbReadTable(pool, 'contexts')
 trenches <- contexts[2:5]
 #function to select trench and return associated contexts
 chooseTrench <- function(trench) {
-trenches[trenches$Trench == trench,]$Context
+  trenches[trenches$Trench == trench,]$Context
 }
 transectcollectionpoints <- dbReadTable(pool, 'transectcollectionpoints')
 transects <- as.character(sort(as.numeric(unique(transectcollectionpoints$Transect))))
@@ -86,7 +86,7 @@ shinyApp(
                            column(width = 2,
                                   #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated
                                   selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = "")
-                          ),  
+                           ),  
                            column(width = 2,
                                   uiOutput("LocusTypeSelected")
                            ),
@@ -105,13 +105,13 @@ shinyApp(
                          fluidRow(
                            column(width = 1,
                                   actionButton("query", "Query")
-                            ),
+                           ),
                            column(width = 1,
                                   actionButton("ClearInputs", "Clear Inputs")),
                            column(width = 4,
                                   wellPanel(
                                     htmlOutput("SummaryInfo"))
-                               )
+                           )
                          ),
                          hr(),
                          tabsetPanel(id = "myTabs", type = "tabs",
@@ -263,11 +263,11 @@ shinyApp(
         req(input$selectTrench)
         if (input$selectTrench != "All"){
           currentChoices_transects <<- chooseTransect(input$selectTrench)
-        output$TrenchSelected <- renderUI({
-          tagList(
-            selectizeInput("Locus", "Locus", choices = currentChoices_transects, multiple = TRUE, selected = "", options=list(create=TRUE))  
-          )
-        })  
+          output$TrenchSelected <- renderUI({
+            tagList(
+              selectizeInput("Locus", "Locus", choices = currentChoices_transects, multiple = TRUE, selected = "", options=list(create=TRUE))  
+            )
+          })  
         }
         else {
           currentChoices_transects <<- transectcollectionpoints %>% select(CollectionPointID) %>% filter(transectcollectionpoints$Transect == as.character(input$selectTrench))
@@ -277,8 +277,8 @@ shinyApp(
             )
           })
         }
-        }
-        
+      }
+      
       
       if (input$LocusType == "Grid" | input$LocusType == "Grab" | input$LocusType == "XFind") {
         
@@ -298,9 +298,9 @@ shinyApp(
       
       
     })
-
     
-
+    
+    
     
     ####choices = allloci$Locus
     
@@ -423,7 +423,7 @@ shinyApp(
         IllustrationSummary <- sum(!is.na(Level3Summary$Illustration) & !is.null(Level3Summary$Illustration) & Level3Summary$Illustration != "")
         PhotoSummary <- sum(!is.na(Level3Summary$Photos))  
         output$SummaryInfo <- renderText(paste("Total artifacts:<b>" , sum(CurrentResults$Quantity), "</b>Total drawn:<b>", IllustrationSummary, "</b>Total photo'd:<b>", PhotoSummary,"</b>", sep=" "))
-
+        
         
         observe({
           SelectedRowEdit <<- input$Level2Table_rows_selected
@@ -445,7 +445,7 @@ shinyApp(
         
         #------------
         #select a cell to generate new table with rows/artifact which is to be filled in
-
+        
         #when a Level 2 row is selected, generate Level3FilterResults; then check to see if nrow(Level3FilterResults) is equal to the quantity in the selected Level 2 row. If it is, no further action needed (Level 3 table generated anyway).  If the number of existing Level 3 records is less than the quantity in the selected Level 2 row, generate Level 3 records to make up the difference.  Compare sel$Quantity to nrow(Level3FilterResults). If nrow(Level3FilterResults) < sel$Quantity , calculate difference, and then get updated Level3 table and generate next n records, filling them with values from sel. For each selected row in sel, go through this process separately (in for loop?).
         # 
         
@@ -475,43 +475,29 @@ shinyApp(
             }
           }
           
-            write_level3FromDifference <<- glue::glue_sql("INSERT INTO `level3` (`ArtefactID`,`LocusType`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({NewArtefactRecordsFromDifference$ArtefactID},{NewArtefactRecordsFromDifference$LocusType}, {NewArtefactRecordsFromDifference$Locus}, {NewArtefactRecordsFromDifference$Period}, {NewArtefactRecordsFromDifference$Blank}, {NewArtefactRecordsFromDifference$Modification})", .con = pool)
-            k <- 1
-            for (k in (1:length(write_level3FromDifference))) {
-              dbExecute(pool, sqlInterpolate(ANSI(), write_level3FromDifference[k]))
-            }
-            
-            Level3 <- dbReadTable(pool, 'level3')
-            Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
-            # i<-1
-            # rowfilter <- matrix(data=NA, nrow=sum(Level3Selection$Quantity), ncol=ncol(Level3))
-            # rowfilter<-data.frame(rowfilter)
-            # for (i in 1:nrow(Level3Selection)) {
-            #   rowfilter[i,] <- filter(Level3, Locus %in% Level3Selection[i,1] & Period %in% Level3Selection[i,2] & Blank %in% Level3Selection[i,3] & Modification %in% Level3Selection[i,4])
-            # }
-            
-            output$Level3Table <- DT::renderDataTable(
-              datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
+          write_level3FromDifference <<- glue::glue_sql("INSERT INTO `level3` (`ArtefactID`,`LocusType`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({NewArtefactRecordsFromDifference$ArtefactID},{NewArtefactRecordsFromDifference$LocusType}, {NewArtefactRecordsFromDifference$Locus}, {NewArtefactRecordsFromDifference$Period}, {NewArtefactRecordsFromDifference$Blank}, {NewArtefactRecordsFromDifference$Modification})", .con = pool)
+          k <- 1
+          for (k in (1:length(write_level3FromDifference))) {
+            dbExecute(pool, sqlInterpolate(ANSI(), write_level3FromDifference[k]))
           }
+          
+          Level3 <- dbReadTable(pool, 'level3')
+          Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+          # i<-1
+          # rowfilter <- matrix(data=NA, nrow=sum(Level3Selection$Quantity), ncol=ncol(Level3))
+          # rowfilter<-data.frame(rowfilter)
+          # for (i in 1:nrow(Level3Selection)) {
+          #   rowfilter[i,] <- filter(Level3, Locus %in% Level3Selection[i,1] & Period %in% Level3Selection[i,2] & Blank %in% Level3Selection[i,3] & Modification %in% Level3Selection[i,4])
+          # }
+          
+          output$Level3Table <- DT::renderDataTable(
+            datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
+        }
         else 
           output$Level3Table <- DT::renderDataTable(
             datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
-  
-        observeEvent(input$Level3EditButton, {        #use 'Edit cell' button to save individual cell edits
-          Level3proxytable <<- dataTableProxy('Level3FilterResults')  
-          observeEvent(input$Level3Table_cell_edit,   {
-            CellsToEdit <<- input$Level3Table_cell_edit
-            ARtoEdit <<- Level3FilterResults[CellsToEdit$row, 7] #returns artifact (whichever column)
-            ColtoEdit <<- colnames(Level3FilterResults)[CellsToEdit$col+2] #change 
-            #then use that AR and the column name of CellsToEdit[2] to identify cell to edit in Level3 table
-            ValueToUpdate <<- Level3[Level3$ArtefactID == ARtoEdit, ColtoEdit]
-            UpdatedValue <<- CellsToEdit$value #then get value from edited cell and write to db
-            EditedCell <<- glue::glue_sql("UPDATE `level3` SET {`ColtoEdit`} = {UpdatedValue} WHERE `ArtefactID` = {ARtoEdit}", .con = pool)
-            dbExecute(pool, sqlInterpolate(ANSI(), EditedCell))
-          })
-        })
         
-#if the 'Photo' or 'Illustration' cell is selected in the Level 3 table, that generates a query about any associated photos or illustrations.  That query returns a table of existing photos/illustrations, into which new photos/illustrations can be entered if necessary. If new ones are entered, check db to generate next photo/illustration ID and assign that to the one(s) entered.        
+        #if the 'Photo' or 'Illustration' cell is selected in the Level 3 table, that generates a query about any associated photos or illustrations.  That query returns a table of existing photos/illustrations, into which new photos/illustrations can be entered if necessary. If new ones are entered, check db to generate next photo/illustration ID and assign that to the one(s) entered.        
         ##need also to write Photo/Drawing ID to appropriate column of Level 3 record
         ##and why are these writing multiple records?
         observe({   #because other observes are inside this one, those actions seem to be doubling (or more) - happening when cells are selected rather than or in addition to when buttons are pressed
@@ -529,7 +515,7 @@ shinyApp(
               Photos <- dbReadTable(pool, 'photos')
               output$PhotosTable <- DT::renderDataTable(
                 datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
-          #    repeat for illustrations
+              #    repeat for illustrations
               Illustrations <- dbReadTable(pool, 'illustrations')
               output$IllustrationsTable <- DT::renderDataTable(
                 datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
@@ -551,7 +537,7 @@ shinyApp(
                 ###**CURRENTLY MAKING TWO ENTRIES IN THE DATABASE (DOUBLE ENTERING)?
                 contextUpdate <- Level3[Level3$ArtefactID == PhotosSelection,]$Locus
                 newPhotoInsert <<- glue::glue_sql("INSERT INTO `photos` (`Filename`, `ArtefactID`,`Context`) VALUES ({NewPhotoValue}, {PhotosSelection},{contextUpdate})"
-                                                 , .con = pool)
+                                                  , .con = pool)
                 dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
                 Photos <- dbReadTable(pool, 'photos')
                 PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
@@ -571,13 +557,13 @@ shinyApp(
                 for (k in (1:length(newPhoto))) {
                   dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate[k]))
                 }
-              #  dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate))  ##but really this shouldn't be necessary; should be handled by a relate in MySQL, and here could just refresh the table displayed in FLIRT
+                #  dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate))  ##but really this shouldn't be necessary; should be handled by a relate in MySQL, and here could just refresh the table displayed in FLIRT
                 
                 
                 updateTextInput(session, "newPhotoFilename", value = "")
                 
               })
-
+              
               #   
               #repeat for Illustrations
               IllustrationsSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
@@ -630,7 +616,7 @@ shinyApp(
                   #increment illustration ID - get current list, choose highest number, increment, and include in glue_sql statement
                   contextUpdate <- Level3[Level3$ArtefactID == IllustrationsSelection, ]$Locus
                   newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `ArtefactID`, `DrawingID`,`Locus`) VALUES ({NewIllustrationValue}, {IllustrationsSelection}, {NewIllustrationDrawingValue},{contextUpdate})"
-                                                          , .con = pool)
+                                                           , .con = pool)
                   dbExecute(pool, sqlInterpolate(ANSI(), newIllustrationInsert))
                   Illustrations <- dbReadTable(pool, 'illustrations')
                   IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection)
@@ -643,12 +629,12 @@ shinyApp(
                   newIllustration <<- filter(Illustrations, ArtefactID==IllustrationsSelection)$DrawingID
                   #then update db
                   Level3IllustrationUpdate <<- glue::glue_sql("UPDATE `level3` SET `Illustration` = CONCAT(IFNULL(`Illustration`,''),', ',{newIllustration}) WHERE `ArtefactID` = {IllustrationsSelection}"
-                                                      , .con = pool)
+                                                              , .con = pool)
                   k <- 1
                   for (k in (1:length(newIllustration))) {
                     dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationUpdate[k]))
                   }
-                 # dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationUpdate))
+                  # dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationUpdate))
                   
                   ##CLEAR INPUTS AT THE END
                   updateTextInput(session, "newIllustrationDrawingNumber", value = "")
@@ -682,6 +668,21 @@ shinyApp(
       }
     })
     
+    observeEvent(input$Level3Table_cell_edit, {
+      CellsToEdit <<- input$Level3Table_cell_edit
+      ARtoEdit <<- Level3FilterResults[CellsToEdit$row, 7] #returns artifact (whichever column)
+      ColtoEdit <<- colnames(Level3FilterResults)[CellsToEdit$col+2] #change
+      #then use that AR and the column name of CellsToEdit[2] to identify cell to edit in Level3 table
+      ValueToUpdate <<- Level3[Level3$ArtefactID == ARtoEdit, ColtoEdit]
+      UpdatedValue <<- CellsToEdit$value #then get value from edited cell and write to db
+    })
+    
+    observeEvent(input$Level3EditButton, {        #use 'Edit cell' button to save individual cell edits
+      EditedCell <<- glue::glue_sql("UPDATE `level3` SET {`ColtoEdit`} = {UpdatedValue} WHERE `ArtefactID` = {ARtoEdit}", .con = pool)
+      dbExecute(pool, sqlInterpolate(ANSI(), EditedCell))
+    })
+    
+    
     #for creating/displaying new tabs on the fly
     # tabIndex <- 1:6
     # observeEvent(input$Level3Table_cells_selected, {
@@ -710,7 +711,7 @@ shinyApp(
       FixedPrefixAR <- paste0("AR", ExtraZeroesAR)
       NewAR <- gsub("(^..)", FixedPrefixAR, NewAR)
     }
-
+    
     Photos <- dbReadTable(pool, 'photos')
     PhotoNumbers <- as.character(Photos$PhotoID)
     PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
@@ -722,7 +723,7 @@ shinyApp(
       FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
       NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
     }
-
+    
     Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
     IllustrationNumbers <- as.character(Illustrations$IllustrationNumber)
     IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
@@ -734,7 +735,7 @@ shinyApp(
       FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
       NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
     }
-
+    
     #-----/New Ids-----#
     
     #-----NewRecords-----#
@@ -745,9 +746,9 @@ shinyApp(
           Level3 <- dbReadTable(pool, 'level3')
           EquivRecordFilter <- data.frame()
           EquivRecordFilter <- reactive({
-              select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination)
-            })
-            EquivRecordFilter_df <<- EquivRecordFilter()
+            select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination)
+          })
+          EquivRecordFilter_df <<- EquivRecordFilter()
           
           #EquivRecordFilter <- data.frame()
           #EquivRecordFilter <- reactive({
@@ -948,7 +949,7 @@ shinyApp(
       updateSelectInput(session, "NewWeathering", selected = "")
       updateSelectInput(session, "NewPatination", selected = "")
       updateSelectInput(session, "NewBurned", selected = "")
-      })
+    })
     #-----/NewRecords-----#
     
     #-----EditRecords-----#
@@ -1134,7 +1135,7 @@ shinyApp(
             Level3ToBatch <<- Level3ToBatch %>% filter(!!(sym(names(batchInputs)[m])) == "" | is.na(!!(sym(names(batchInputs)[m])))==T | is.null(!!(sym(names(batchInputs)[m])))==T)
           }
         } 
-          #this takes data inputs and filters for rows in which there's no data entered, allowing changes for those which are empty
+        #this takes data inputs and filters for rows in which there's no data entered, allowing changes for those which are empty
         
         
         if (nrow(Level3ToBatch) >= SelectedQuantity) {
@@ -1223,18 +1224,18 @@ shinyApp(
       
     }) # close input$SaveBatch, all conditions
     
+    observeEvent(input$Level3TableModal_cell_edit, {
+      CellsToEdit_modal <<- input$Level3TableModal_cell_edit
+      ARtoEdit_modal <<- Level3FilterResultsEdit[CellsToEdit_modal$row, 7] #returns artifact (whichever column)
+      ColtoEdit_modal <<- colnames(Level3FilterResultsEdit[,-c(1:6)])[CellsToEdit_modal$col+1] #change 
+      #then use that AR and the column name of CellsToEdit[2] to identify cell to edit in Level3 table
+      ValueToUpdate_modal <<- Level3[Level3$ArtefactID == ARtoEdit_modal, ColtoEdit_modal]
+      UpdatedValue_modal <<- CellsToEdit_modal$value #then get value from edited cell and write to db
+    })
+    
     observeEvent(input$SaveIndividual, {        #use 'Apply Change' button to save individual cell edits
-      proxytable <- dataTableProxy('Level3TableModal')  
-      observeEvent(input$Level3TableModal_cell_edit,   {
-        CellsToEdit_modal <- input$Level3TableModal_cell_edit
-        ARtoEdit_modal <- Level3FilterResultsEdit[CellsToEdit_modal$row, 7] #returns artifact (whichever column)
-        ColtoEdit_modal <- colnames(Level3FilterResultsEdit[,-c(1:6)])[CellsToEdit_modal$col+1] #change 
-        #then use that AR and the column name of CellsToEdit[2] to identify cell to edit in Level3 table
-        ValueToUpdate_modal <- Level3[Level3$ArtefactID == ARtoEdit_modal, ColtoEdit_modal]
-        UpdatedValue_modal <- CellsToEdit_modal$value #then get value from edited cell and write to db
-        EditedCell_modal <- glue::glue_sql("UPDATE `level3` SET {`ColtoEdit_modal`} = {UpdatedValue_modal} WHERE `ArtefactID` = {ARtoEdit_modal}", .con = pool)
-        dbExecute(pool, sqlInterpolate(ANSI(), EditedCell_modal))
-        })
+      EditedCell_modal <- glue::glue_sql("UPDATE `level3` SET {`ColtoEdit_modal`} = {UpdatedValue_modal} WHERE `ArtefactID` = {ARtoEdit_modal}", .con = pool)
+      dbExecute(pool, sqlInterpolate(ANSI(), EditedCell_modal))
     })
     
     observeEvent(input$ModalDismiss, {
