@@ -24,7 +24,7 @@ source("/Users/zackbatist/Desktop/keys.R")
 
 
 #define pool handler by pool on global level
-pool <- pool::dbPool(drv = RMySQL::MySQL(),
+pool <- pool::dbPool(drv = dbDriver("MySQL"),
                      dbname = dbnamex,
                      host = hostx,
                      port = portx,
@@ -50,8 +50,8 @@ blanks <- dbReadTable(pool, 'blanks_excavation')
 blanks
 modifications <- dbReadTable(pool, 'modifications_excavation')
 modifications <- unique(modifications$Modification)[c(11,1:10,12:26)] #re-order so that 'No modification' is first
-periods <- dbReadTable(pool, 'dating')
-periods <- periods[c(6,1:5),]
+periods <<- dbReadTable(pool, 'dating')
+#periods <<- periods[c(6,1:5),]
 activitylog <- dbReadTable(pool, 'activitylog')
 activitylog
 contexts <- dbReadTable(pool, 'contexts')
@@ -73,44 +73,35 @@ shinyApp(
       HTML("input[type='search']:disabled {visibility:hidden}")
     )),
     tabsetPanel(id = "OverallTabs", type = "tabs",
-                tabPanel("Query",
+                tabPanel("Find",
                          titlePanel("SNAP Lithics Processing"
                          ),
                          fluidRow(
-                           column(width = 12,
-                                  h4("Select one or more criteria for your search (Don't have to select something for every category)"), 
-                                  style='padding:10px;'
-                           )
-                         ),
-                         fluidRow(
-                           column(width = 2,
-                                  #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated
-                                  selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = "")
-                           ),  
-                           column(width = 2,
-                                  uiOutput("LocusTypeSelected")
-                           ),
-                           column(width = 2,
-                                  uiOutput("TrenchSelected")
-                           ),
+                           #these (below) only are submitted once 'query' button is clicked, but then update dynamically as filters are updated
+                           column(width = 1,
+                                  selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = "")),
+                           column(width = 1,
+                                  uiOutput("LocusTypeSelected")),
+                           column(width = 1,
+                                  uiOutput("TrenchSelected")),
                            column(width = 2,
                                   selectizeInput("Period", "Period", choices = c("", periods$Period), multiple = TRUE, selected = "")),
                            column(width = 2,
                                   selectizeInput("Blank", "Blank", choices = c("", blanks$Blank), multiple = TRUE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("Modification", "Modification", choices = c("", modifications), multiple = TRUE, selected = "")),
-                           column(3, verbatimTextOutput("x1"), align = "center"),
-                           column(3, verbatimTextOutput("x2"), align = "center")
+                                  selectizeInput("Modification", "Modification", choices = c("", modifications), multiple = TRUE, selected = ""))
                          ),
                          fluidRow(
-                           column(width = 1,
-                                  actionButton("query", "Query")
-                           ),
-                           column(width = 1,
-                                  actionButton("ClearInputs", "Clear Inputs")),
-                           column(width = 4,
-                                  wellPanel(
-                                    htmlOutput("SummaryInfo"))
+                           column(width = 8,
+                                  actionButton("query", "Find"),
+                                  actionButton("ClearInputs", "Clear Inputs"),
+                                  actionButton("NewRecordButton", "Create New"),
+                                  uiOutput("CopyToNewRecord")
+                           )
+                         ),
+                         fluidRow(
+                           column(width = 8,
+                                  wellPanel(htmlOutput("SummaryInfo"))
                            )
                          ),
                          hr(),
@@ -157,51 +148,6 @@ shinyApp(
                                               hr(),
                                               br(),
                                               DT::dataTableOutput("IllustrationsTable")
-                                     )
-                         )
-                ),
-                
-                tabPanel("Create Records",
-                         titlePanel("Create New Records"),
-                         fluidRow(
-                           column(width = 2,
-                                  selectInput("NewLocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
-                           column(width = 2,
-                                  selectizeInput("NewLocus", "Locus", choices = c("", allloci$Locus), multiple = FALSE, selected = "", options=list(create=TRUE))),
-                           column(width = 2,
-                                  selectizeInput("NewPeriod", "Period", choices = c("", periods$Period), multiple = FALSE, selected = "")),
-                           column(width = 2,
-                                  selectizeInput("NewBlank", "Blank", choices = c("", blanks$Blank), multiple = FALSE, selected = "", options = list(create = TRUE))),
-                           column(width = 2,
-                                  selectizeInput("NewModification", "Modification", choices = c("", modifications), multiple = FALSE, selected = "", options = list(create = TRUE))),
-                           column(width = 1,
-                                  numericInput("NewQuantity", "Quantity", "1"))
-                         ),
-                         fluidRow(
-                           column(width = 2,
-                                  selectInput("NewRawMaterial","Raw Material", c(Choose = '', 'Type A', 'Type B', 'Type C', 'Type D', 'Type E', 'Type F', 'Indeterminate', 'Missing'), selectize = TRUE)),
-                           column(width = 2,
-                                  selectInput("NewWeathering","Weathering", c(Choose = '', "1", "2", "3", "4", "5"), selectize = TRUE)),
-                           column(width = 2,
-                                  selectInput("NewPatination","Patination", c(Choose = '', "Patinated"), selectize = TRUE)),
-                           column(width = 2,
-                                  selectInput("NewBurned","Burned", c(Choose = '', "Burned"), selectize = TRUE))
-                         ),
-                         actionButton("submit", "Submit"),
-                         ##actionButton("toggleNewBlankMod", "New Blank or Modification"),
-                         actionButton("ClearNewInputs", "Clear Inputs"),
-                         uiOutput("newBlankMod"),
-                         hr(),
-                         h2("All Records"),
-                         column(12, verbatimTextOutput("x3", placeholder = TRUE)),
-                         tabsetPanel(id = "myTabsx", type = "tabs",
-                                     tabPanel("All Level 2",
-                                              br(),
-                                              DT::dataTableOutput("NewLevel2Table")
-                                     ),
-                                     tabPanel("All Level 3",
-                                              br(),
-                                              DT::dataTableOutput("NewLevel3Table")
                                      )
                          )
                 ),
@@ -393,11 +339,11 @@ shinyApp(
       
       if (nrow(CurrentResults) == nrow(Level2)) {
         output$Level2Table <- renderDataTable(datatable(EmptyDT))
-        output$x2 <- renderText("Identical to the complete set of Level2 records")
+        output$SummaryInfo <- renderText("Identical to the complete set of Level2 records")
       }
       
       if (nrow(CurrentResults) == 0) {
-        output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+        output$SummaryInfo <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.") 
         output$SummaryInfo <- renderText(paste("No lithics match criteria."))
         output$Level2Table <- renderDataTable(datatable(CurrentResults))
       }
@@ -458,7 +404,7 @@ shinyApp(
         if (nrow(Level3FilterResults) < sum(Level3Selection$Quantity)) {
           j <- 1
           for (j in (1:nrow(Level3Selection))) {
-            ArtefactIDQuantityDifference <<- Level3Selection$Quantity[j] - nrow(Level3FilterResults[Level3FilterResults$Locus == Level3Selection$Locus[j] & Level3FilterResults$Blank == Level3Selection$Blank[j] & Level3FilterResults$Modification == Level3Selection$Modification[j] & Level3FilterResults$Period == Level3Selection$Period[j],]) 
+            ArtefactIDQuantityDifference <<- Level3Selection$Quantity[j] - nrow(Level3FilterResults[Level3FilterResults$Locus == Level3Selection$Locus[j] & Level3FilterResults$Blank == Level3Selection$Blank[j] & Level3FilterResults$Modification == Level3Selection$Modification[j] & Level3FilterResults$Period == Level3Selection$Period[j],])
             NewArtefactRecordsFromDifference <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Modification = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE) #but I think some of these are dropped below, so removing them here: RawMaterial = as.character(), Weathering = as.character(), Patination = as.character()
             getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
             latestARid <- as.character(dbGetQuery(pool, getnewARid))
@@ -739,118 +685,222 @@ shinyApp(
     #-----/New Ids-----#
     
     #-----NewRecords-----#
-    observeEvent(input$submit, {
-      query <- reactive({
-        if (input$NewLocusType != "XFind") {
-          #EquivRecord <- dbReadTable(pool, 'level2')
-          Level3 <- dbReadTable(pool, 'level3')
-          EquivRecordFilter <- data.frame()
-          EquivRecordFilter <- reactive({
-            select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination)
-          })
-          EquivRecordFilter_df <<- EquivRecordFilter()
-          
-          #EquivRecordFilter <- data.frame()
-          #EquivRecordFilter <- reactive({
-          #  select(filter(EquivRecord, Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & LocusType==input$NewLocusType & Locus==input$NewLocus), Locus, LocusType, Period, Blank, Modification, Quantity)
-          #})
-          #EquivRecordFilter_df <<- EquivRecordFilter()
-          
-          if (nrow(EquivRecordFilter_df) == 0) {
-            values <- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewQuantity))
-            
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewRawMaterial'] <- 'RawMaterial'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewWeathering'] <- 'Weathering'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPatination'] <- 'Patination'
-            colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
-            
-            NewRecord <<- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
-            NewRecord$Locus <- as.character(NewRecord$Locus)
-            NewRecord$LocusType <- as.character(NewRecord$LocusType)
-            NewRecord$Period <- as.character(NewRecord$Period)
-            NewRecord$Blank <- as.character(NewRecord$Blank)
-            NewRecord$Modification <- as.character(NewRecord$Modification)
-            NewRecord$RawMaterial <- as.character(NewRecord$RawMaterial)
-            NewRecord$Weathering <- as.character(NewRecord$Weathering)
-            NewRecord$Patination <- as.character(NewRecord$Patination)
-            NewRecord$Quantity <- as.numeric(NewRecord$Quantity)
-            
-            WriteNewLevel2Record <- glue::glue_sql("INSERT INTO `level2` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `Quantity`) VALUES ({NewRecord$Locus}, {NewRecord$LocusType}, {NewRecord$Period}, {NewRecord$Blank}, {NewRecord$Modification}, {NewRecord$Quantity})", .con = pool)
-            
-            WriteNewLevel2Record <<- as.character(WriteNewLevel2Record)
-            WriteNewLevel2Record
-            queryx <<- as.character(WriteNewLevel2Record)
-            queryx
-            UpdateExistingLevel2Record <<- NULL
-            
-            message1 <- paste0("New record added to Level2 table: ","[",NewRecord$LocusType,"/",NewRecord$Locus,"/",NewRecord$Period,"/",NewRecord$Blank,"/",NewRecord$Modification,"/",NewRecord$Quantity,"].")
-            activitylog <- dbReadTable(pool, 'activitylog')
-            activitylog <- data.frame(Log = message1,
-                                      Timestamp = as.character(Sys.time()),
-                                      stringsAsFactors = FALSE)
-            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            writeActivity
-            activitylog <<- dbReadTable(pool, 'activitylog')
-            activitylog
-            output$x3 <- renderPrint(message1)
-            
-          }
-          
-          if (nrow(EquivRecordFilter_df) > 0) {
-            valuesx <- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
-            
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocusType'] <- 'LocusType'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <- 'Locus'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPeriod'] <- 'Period'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewBlank'] <- 'Blank'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewModification'] <- 'Modification'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewRawMaterial'] <- 'RawMaterial'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewWeathering'] <- 'Weathering'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPatination'] <- 'Patination'
-            colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewQuantity'] <- 'Quantity'
-            
-            toAdd <- as.data.frame(valuesx$singleResponse_dfx, stringsAsFactors = FALSE)
-            
-            EquivRecordQuantityUpdated <- EquivRecordFilter_df$Quantity + toAdd$Quantity
-            UpdateExistingLevel2Record <- glue::glue_sql("UPDATE `level2` SET `Quantity` = {EquivRecordQuantityUpdated} WHERE `Locus` = {EquivRecordFilter_df$Locus} AND `Period` = {EquivRecordFilter_df$Period} AND `Blank` = {EquivRecordFilter_df$Blank} AND `Modification` = {EquivRecordFilter_df$Modification}", .con = pool)
-            
-            UpdateExistingLevel2Record <<- as.character(UpdateExistingLevel2Record)
-            UpdateExistingLevel2Record
-            queryx <<- as.character(UpdateExistingLevel2Record)
-            queryx
-            WriteNewLevel2Record <<- NULL
-            
-            message2 <- paste0(toAdd$Quantity," lithics added to existing batch of ",EquivRecordFilter_df$Quantity," records with configuration: [",EquivRecordFilter_df$LocusType,"/",EquivRecordFilter_df$Locus,"/",EquivRecordFilter_df$Period,"/",EquivRecordFilter_df$Blank,"/",EquivRecordFilter_df$Modification,"]. There are now ",EquivRecordQuantityUpdated," records of that configuration.")
-            activitylog <- dbReadTable(pool, 'activitylog')
-            activitylog <- data.frame(Log = message2,
-                                      Timestamp = as.character(Sys.time()),
-                                      stringsAsFactors = FALSE)
-            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-            writeActivity
-            activitylog <<- dbReadTable(pool, 'activitylog')
-            activitylog
-            output$x3 <- renderPrint(message2)
-            
-          }
-        }
-        else {
-          #do the xfind stuff here
-          
-          
-          
-          
-          
-        }
+    observeEvent(input$NewRecordButton, {
+      showModal(modalDialog(title = paste0("Create New Records"),
+                            fluidRow(
+                              column(width = 2,
+                                     selectInput("NewLocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab", "XFind"), multiple = FALSE, selected = NULL)),
+                              column(width = 2,
+                                     selectizeInput("NewLocus", "Locus", choices = c("", allloci$Locus), multiple = FALSE, selected = "", options=list(create=TRUE))),
+                              column(width = 2,
+                                     selectizeInput("NewPeriod", "Period", choices = c("", periods$Period), multiple = FALSE, selected = "")),
+                              column(width = 2,
+                                     selectizeInput("NewBlank", "Blank", choices = c("", blanks$Blank), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                              column(width = 2,
+                                     selectizeInput("NewModification", "Modification", choices = c("", modifications), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                              column(width = 1,
+                                     numericInput("NewQuantity", "Quantity", "1"))
+                            ),
+                            fluidRow(
+                              column(width = 2,
+                                     selectInput("NewRawMaterial","Raw Material", c(Choose = '', 'Type A', 'Type B', 'Type C', 'Type D', 'Type E', 'Type F', 'Indeterminate', 'Missing'), selectize = TRUE)),
+                              column(width = 2,
+                                     selectInput("NewWeathering","Weathering", c(Choose = '', "1", "2", "3", "4", "5"), selectize = TRUE)),
+                              column(width = 2,
+                                     selectInput("NewPatination","Patination", c(Choose = '', "Patinated"), selectize = TRUE)),
+                              column(width = 2,
+                                     selectInput("NewBurned","Burned", c(Choose = '', "Burned"), selectize = TRUE))
+                            ),
+                            fluidRow(
+                              column(width = 3,
+                                     actionButton("CreateNewRecord", "Create"),
+                                     ##actionButton("toggleNewBlankMod", "New Blank or Modification"),
+                                     actionButton("ClearNewInputs", "Clear Inputs")
+                              ),
+                              column(width = 7,
+                                     wellPanel(htmlOutput("NewRecordMessages"))
+                              ),
+                              column(width = 2,
+                                     uiOutput("ConfirmNewRecord")
+                              )
+                            ),
+                            hr(),
+                            DT::dataTableOutput("ShowNewRecords"),
+                            footer = modalButton("Dismiss"),
+                            size = "l",
+                            easyClose = TRUE,
+                            fade = FALSE
+      )
+      )
+    })
+    
+    observeEvent(input$CreateNewRecord, {
+      Level3 <- dbReadTable(pool, 'level3')
+      EquivRecordFilter <- data.frame()
+      EquivRecordFilter <<- reactive({
+        select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination)
       })
+      EquivRecordFilter_df <<- EquivRecordFilter()
       
-      query <<- query()
-      dbExecute(pool, sqlInterpolate(ANSI(), queryx))
+      if (nrow(EquivRecordFilter_df) == 0) {
+        values <- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewQuantity))
+        
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewRawMaterial'] <- 'RawMaterial'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewWeathering'] <- 'Weathering'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPatination'] <- 'Patination'
+        colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewQuantity'] <- 'Quantity'
+        
+        NewRecord <<- as.data.frame(values$singleResponse_df, stringsAsFactors = FALSE)
+        NewRecord$Locus <- as.character(NewRecord$Locus)
+        NewRecord$LocusType <- as.character(NewRecord$LocusType)
+        NewRecord$Period <- as.character(NewRecord$Period)
+        NewRecord$Blank <- as.character(NewRecord$Blank)
+        NewRecord$Modification <- as.character(NewRecord$Modification)
+        NewRecord$RawMaterial <- as.character(NewRecord$RawMaterial)
+        NewRecord$Weathering <- as.character(NewRecord$Weathering)
+        NewRecord$Patination <- as.character(NewRecord$Patination)
+        NewRecord$Quantity <- as.numeric(NewRecord$Quantity)
+        
+        WriteNewLevel2Record <- glue::glue_sql("INSERT INTO `level2` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `Quantity`) VALUES ({NewRecord$Locus}, {NewRecord$LocusType}, {NewRecord$Period}, {NewRecord$Blank}, {NewRecord$Modification}, {NewRecord$Quantity})", .con = pool)
+        WriteNewLevel2Record <<- as.character(WriteNewLevel2Record)
+        WriteNewLevel2Record
+        dbExecute(pool, sqlInterpolate(ANSI(), WriteNewLevel2Record))
+        
+        ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewQuantity))
+        toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
+        singleRow_expanded <<- expandRows(toExpand, count = 9, count.is.col = TRUE, drop = TRUE)
+        singleRow_expanded <<- data.frame(lapply(singleRow_expanded, as.character), stringsAsFactors = FALSE)
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewBlank'] <- 'Blank'
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewModification'] <- 'Modification'
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewRawMaterial'] <- 'RawMaterial'
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewWeathering'] <- 'Weathering'
+        colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPatination'] <- 'Patination'
+        
+        singleRow_expanded <<- singleRow_expanded
+        singleRow_expanded$Locus <- as.character(singleRow_expanded$Locus)
+        singleRow_expanded$LocusType <- as.character(singleRow_expanded$LocusType)
+        singleRow_expanded$Period <- as.character(singleRow_expanded$Period)
+        singleRow_expanded$Blank <- as.character(singleRow_expanded$Blank)
+        singleRow_expanded$Modification <- as.character(singleRow_expanded$Modification)
+        singleRow_expanded$RawMaterial <- as.character(singleRow_expanded$RawMaterial)
+        singleRow_expanded$Weathering <- as.character(singleRow_expanded$Weathering)
+        singleRow_expanded$Patination <- as.character(singleRow_expanded$Patination)
+        
+        for (j in (1:nrow(singleRow_expanded))) {
+          ArtefactIDQuantityDifferenceNewRecords <<- nrow(singleRow_expanded)
+          NewArtefactRecordsFromDifferenceNewRecords <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
+          getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
+          latestARid <- as.character(dbGetQuery(pool, getnewARid))
+          latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
+          newARid <- latestARidnum + 1
+          #generate first one, then increment up from there to ArtefactIDQuantityDifference
+          ARidseq <- seq(newARid, length.out=ArtefactIDQuantityDifferenceNewRecords, by=1)
+          ARidstring <<- as.character(paste0("AR", str_pad(ARidseq, 6, pad="0"))) 
+          
+          l<-1
+          for (l in (1:ArtefactIDQuantityDifferenceNewRecords)) {
+            NewArtefactRecordsFromDifferenceNewRecords[l,] <- cbind(singleRow_expanded, data.frame(ArtefactID = ""), stringsAsFactors = F) #need to add a placeholder column for artefact ID
+            NewArtefactRecordsFromDifferenceNewRecords[l,]$ArtefactID <- ARidstring[l]
+          }
+        }
+        
+        write_level3 <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `RawMaterial`, `Weathering`, `Patination`, `ArtefactID`) VALUES ({NewArtefactRecordsFromDifferenceNewRecords$Locus}, {NewArtefactRecordsFromDifferenceNewRecords$LocusType}, {NewArtefactRecordsFromDifferenceNewRecords$Period}, {NewArtefactRecordsFromDifferenceNewRecords$Blank}, {NewArtefactRecordsFromDifferenceNewRecords$Modification}, {NewArtefactRecordsFromDifferenceNewRecords$RawMaterial}, {NewArtefactRecordsFromDifferenceNewRecords$Weathering}, {NewArtefactRecordsFromDifferenceNewRecords$Patination}, {NewArtefactRecordsFromDifferenceNewRecords$ArtefactID})", .con = pool)
+        m <- 1
+        for (m in (1:length(write_level3))) {
+          dbExecute(pool, write_level3[m])
+        }
+        
+        output$ShowNewRecords <- renderUI({
+          DT::renderDataTable(Level3 %>% filter(ArtefactID %in% ARidstring) %>% select(ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination))
+        })
+        
+        # refresh the interface
+        NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
+        NewTermPeriod <- if(!is.null(input$NewPeriod)) {input$NewPeriod} else {""}
+        NewTermBlank <- if(!is.null(input$NewBlank)) {input$NewBlank} else {""}
+        NewTermModification <- if(!is.null(input$NewModification)) {input$NewModification} else {""}
+        NewTermRawMaterial <- if(!is.null(input$NewRawMaterial)) {input$NewRawMaterial} else {""}
+        NewTermWeathering <- if(!is.null(input$NewWeathering)) {input$NewWeathering} else {""}
+        NewTermPatination <- if(!is.null(input$NewPatination)) {input$NewPatination} else {""}
+        NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination)
+        
+        CurrentResults <<- QueryResults(NewInputs)
+        Level2 <- dbReadTable(pool, 'level2')
+        EmptyDT <- filter(CurrentResults, Locus=="blah")
+        
+        CurrentResultsUpdated <<- QueryResults(NewInputs)
+        Level2 <- dbReadTable(pool, 'level2')
+        EmptyDT <- filter(CurrentResultsUpdated, Locus=="blah")
+        
+        if (nrow(CurrentResultsUpdated) == nrow(Level2)) {
+          output$Level2Table <- renderDataTable(datatable(EmptyDT))
+          output$SummaryInfo <- renderText("Identical to the complete set of Level2 records")
+        }
+        
+        if (nrow(CurrentResultsUpdated) == 0) {
+          output$SummaryInfo <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+          output$SummaryInfo <- renderText(paste("No lithics match criteria."))
+          output$Level2Table <- renderDataTable(datatable(CurrentResultsUpdated))
+        }
+        
+        if (nrow(CurrentResultsUpdated) > 0 & nrow(CurrentResultsUpdated) != nrow(Level2)) {
+          SelectedRowEdit <<- input$Level2Table_rows_selected
+          output$Level2Table <- DT::renderDataTable(
+            datatable(CurrentResultsUpdated[,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
+          to_index <<- CurrentResultsUpdated
+        }
+        
+        message1 <- paste0("Created ",NewRecord$Quantity," new records from ",NewRecord$LocusType," ",NewRecord$Locus," as: ",NewRecord$Period," / ",NewRecord$Blank," / ",NewRecord$Modification,".")
+        activitylog <- dbReadTable(pool, 'activitylog')
+        activitylog <- data.frame(Log = message1,
+                                  Timestamp = as.character(Sys.time()),
+                                  stringsAsFactors = FALSE)
+        writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+        writeActivity
+        activitylog <<- dbReadTable(pool, 'activitylog')
+        activitylog
+        output$NewRecordMessages <- renderPrint(message1)
+      }
       
+      if (nrow(EquivRecordFilter_df) > 0) {
+        valuesx <<- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
+        
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocusType'] <<- 'LocusType'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <<- 'Locus'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPeriod'] <<- 'Period'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewBlank'] <<- 'Blank'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewModification'] <<- 'Modification'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewRawMaterial'] <<- 'RawMaterial'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewWeathering'] <- 'Weathering'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPatination'] <<- 'Patination'
+        colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewQuantity'] <<- 'Quantity'
+        
+        toAdd <<- as.data.frame(valuesx$singleResponse_dfx, stringsAsFactors = FALSE)
+        EquivRecordQuantityUpdated <<- nrow(EquivRecordFilter_df) + toAdd$Quantity
+        EquivRecordQuantityUpdated_str <<- as.character(EquivRecordQuantityUpdated)
+        EquivRecordFilter_df_str <<- as.character(nrow(EquivRecordFilter_df))
+        toAddQuantity_str <<- as.character(toAdd$Quantity)
+        message3 <- paste0("",EquivRecordFilter_df_str," artefacts with the same set of characteristics have already been recorded. Press 'Confirm' to add ",toAddQuantity_str," more, raising the total quantity to ",EquivRecordQuantityUpdated_str,".")
+        output$NewRecordMessages <- renderPrint(message3)
+        output$ConfirmNewRecord <- renderUI({
+          actionButton("ConfirmNewRecordButton","Confirm")
+        })
+      }
+    })
+    
+    observeEvent(input$ConfirmNewRecordButton, {
+      UpdateExistingLevel2Record <<- glue::glue_sql("UPDATE `level2` SET `Quantity` = {EquivRecordQuantityUpdated} WHERE `Locus` = {EquivRecordFilter_df$Locus} AND `Period` = {EquivRecordFilter_df$Period} AND `Blank` = {EquivRecordFilter_df$Blank} AND `Modification` = {EquivRecordFilter_df$Modification}", .con = pool)
+      UpdateExistingLevel2Record <<- as.character(UpdateExistingLevel2Record)
+      UpdateExistingLevel2Record
+      dbExecute(pool, sqlInterpolate(ANSI(), UpdateExistingLevel2Record))
       
       ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewQuantity))
       toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
@@ -868,29 +918,39 @@ shinyApp(
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPatination'] <- 'Patination'
       
       singleRow_expanded <<- singleRow_expanded
-      singleRow_expanded$Locus <-as.character(singleRow_expanded$Locus)
-      singleRow_expanded$LocusType <-as.character(singleRow_expanded$LocusType)
-      singleRow_expanded$Period <-as.character(singleRow_expanded$Period)
-      singleRow_expanded$Blank <-as.character(singleRow_expanded$Blank)
-      singleRow_expanded$Modification <-as.character(singleRow_expanded$Modification)
-      singleRow_expanded$RawMaterial <-as.character(singleRow_expanded$RawMaterial)
-      singleRow_expanded$Weathering <-as.character(singleRow_expanded$Weathering)
-      singleRow_expanded$Patination <-as.character(singleRow_expanded$Patination)
+      singleRow_expanded$Locus <- as.character(singleRow_expanded$Locus)
+      singleRow_expanded$LocusType <- as.character(singleRow_expanded$LocusType)
+      singleRow_expanded$Period <- as.character(singleRow_expanded$Period)
+      singleRow_expanded$Blank <- as.character(singleRow_expanded$Blank)
+      singleRow_expanded$Modification <- as.character(singleRow_expanded$Modification)
+      singleRow_expanded$RawMaterial <- as.character(singleRow_expanded$RawMaterial)
+      singleRow_expanded$Weathering <- as.character(singleRow_expanded$Weathering)
+      singleRow_expanded$Patination <- as.character(singleRow_expanded$Patination)
       
-      write_level3 <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `RawMaterial`, `Weathering`,`Patination`) VALUES ({singleRow_expanded$Locus}, {singleRow_expanded$LocusType}, {singleRow_expanded$Period}, {singleRow_expanded$Blank}, {singleRow_expanded$Modification}, {singleRow_expanded$RawMaterial}, {singleRow_expanded$Weathering}, {singleRow_expanded$Patination})", .con = pool)
-      
-      m <- 1
-      for (m in (1:length(write_level3))) {
-        dbExecute(pool, write_level3[m])
+      for (j in (1:nrow(singleRow_expanded))) {
+        ArtefactIDQuantityDifferenceNewRecordsExisting <<- toAdd$Quantity
+        NewArtefactRecordsFromDifferenceNewRecordsExisting <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
+        getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
+        latestARid <- as.character(dbGetQuery(pool, getnewARid))
+        latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
+        newARid <- latestARidnum + 1
+        #generate first one, then increment up from there to ArtefactIDQuantityDifference
+        ARidseq <- seq(newARid, length.out=ArtefactIDQuantityDifferenceNewRecordsExisting, by=1)
+        ARidstring <<- as.character(paste0("AR", str_pad(ARidseq, 6, pad="0"))) 
+        
+        l<-1
+        for (l in (1:ArtefactIDQuantityDifferenceNewRecordsExisting)) {
+          NewArtefactRecordsFromDifferenceNewRecordsExisting[l,] <- cbind(singleRow_expanded, data.frame(ArtefactID = ""), stringsAsFactors = F) #need to add a placeholder column for artefact ID
+          NewArtefactRecordsFromDifferenceNewRecordsExisting[l,]$ArtefactID <- ARidstring[l]
+          NewArtefactRecordsFromDifferenceNewRecordsExisting_df <<- NewArtefactRecordsFromDifferenceNewRecordsExisting
+        }
       }
       
-      Level2 <- dbReadTable(pool, 'level2')
-      output$NewLevel2Table <- DT::renderDataTable(
-        datatable(Level2[,-1], rownames = FALSE))
-      
-      Level3 <- dbReadTable(pool, 'level3')
-      output$NewLevel3Table <- DT::renderDataTable(
-        datatable(Level3[,-1], rownames = FALSE))
+      write_level3_existing <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `RawMaterial`, `Weathering`, `Patination`, `ArtefactID`) VALUES ({NewArtefactRecordsFromDifferenceNewRecordsExisting$Locus}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$LocusType}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Period}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Blank}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Modification}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$RawMaterial}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Weathering}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Patination}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$ArtefactID})", .con = pool)
+      n <- 1
+      for (n in (1:length(write_level3_existing))) {
+        dbExecute(pool, write_level3_existing[n])
+      }
       
       # refresh the interface
       NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
@@ -901,7 +961,7 @@ shinyApp(
       NewTermWeathering <- if(!is.null(input$NewWeathering)) {input$NewWeathering} else {""}
       NewTermPatination <- if(!is.null(input$NewPatination)) {input$NewPatination} else {""}
       NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination)
-      #QueryInputs  <<- data.frame(Locus = ifelse(!is.null(input$Locus), input$Locus, NULL), Blank = ifelse(!is.null(input$Blank), input$Blank, NULL), Modification = ifelse(!is.null(input$Modification), input$Modification, NULL), Period = ifelse(!is.null(input$Period), input$Period, NULL))
+      
       CurrentResults <<- QueryResults(NewInputs)
       Level2 <- dbReadTable(pool, 'level2')
       EmptyDT <- filter(CurrentResults, Locus=="blah")
@@ -912,30 +972,40 @@ shinyApp(
       
       if (nrow(CurrentResultsUpdated) == nrow(Level2)) {
         output$Level2Table <- renderDataTable(datatable(EmptyDT))
-        output$x2 <- renderText("Identical to the complete set of Level2 records")
+        output$SummaryInfo <- renderText("Identical to the complete set of Level2 records")
       }
       
       if (nrow(CurrentResultsUpdated) == 0) {
-        output$x2 <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
+        output$SummaryInfo <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
         output$SummaryInfo <- renderText(paste("No lithics match criteria."))
         output$Level2Table <- renderDataTable(datatable(CurrentResultsUpdated))
       }
       
       if (nrow(CurrentResultsUpdated) > 0 & nrow(CurrentResultsUpdated) != nrow(Level2)) {
-        # QueryResultsyy <- reactive({
-        #   withEditButton <- as.data.frame(cbind(Edit = shinyInput(actionButton, nrow(CurrentResultsUpdated), 'button_', label = "Edit", onclick = 'Shiny.setInputValue(\"EditButton\", this.id, {priority: \"event\"})'), CurrentResultsUpdated))
-        #   # Shiny.setInputValue(\"EditButton\", this.id, {priority: \"event\"})
-        # })
-        # 
-        # QueryResultsYY <<- QueryResultsyy()
-        
         SelectedRowEdit <<- input$Level2Table_rows_selected
-        
         output$Level2Table <- DT::renderDataTable(
           datatable(CurrentResultsUpdated[,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
         to_index <<- CurrentResultsUpdated
       }
       
+      ShowNewRecordsTable <- Level3 %>% select(filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination), ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination)
+      
+      output$ShowNewRecords <- renderUI({
+        DT::renderDataTable(ShowNewRecordsTable)
+      })
+      
+      
+      
+      message2 <- paste0("",toAddQuantity_str," lithics added to existing batch of ",EquivRecordFilter_df_str," records with configuration: [",EquivRecordFilter_df$LocusType,"/",EquivRecordFilter_df$Locus,"/",EquivRecordFilter_df$Period,"/",EquivRecordFilter_df$Blank,"/",EquivRecordFilter_df$Modification,"]. There are now ",EquivRecordQuantityUpdated_str," records of that configuration.")
+      activitylog <- dbReadTable(pool, 'activitylog')
+      activitylog <- data.frame(Log = message2,
+                                Timestamp = as.character(Sys.time()),
+                                stringsAsFactors = FALSE)
+      writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+      writeActivity
+      activitylog <<- dbReadTable(pool, 'activitylog')
+      activitylog
+      output$NewRecordMessages <- renderPrint(message2)
     })
     
     observeEvent(input$ClearNewInputs, {
@@ -1251,7 +1321,7 @@ shinyApp(
       updateSelectizeInput(session, "selectTrench", selected = "")
       
       output$SummaryInfo <- renderText(paste("")) ##clear summary when clearinputs is pressed
-      output$x2 <- renderText(paste("")) ##clear error message when clearinputs is pressed
+      output$SummaryInfo <- renderText(paste("")) ##clear error message when clearinputs is pressed
       
       output$Level2Table <- DT::renderDataTable(
         datatable(CurrentResults[0,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
