@@ -19,12 +19,12 @@ library(stringr)
 #need to set working directory to where keys.R is
 #current <- getwd()
 ##setwd("/Users/danielcontreras/Documents/GitHub/FLIRT")
-source("/Users/zackbatist/Desktop/keys.R")
+source("/Users/zackbatist/Dropbox/FLIRT/keys.R")
 # setwd(current) #when done
 
 
 #define pool handler by pool on global level
-pool <- pool::dbPool(drv = dbDriver("MySQL"),
+pool <- pool::dbPool(drv = dbDriver("MariaDB"),
                      dbname = dbnamex,
                      host = hostx,
                      port = portx,
@@ -179,7 +179,7 @@ shinyApp(
         TrenchChoices <- unique(trenches$Trench)
         output$LocusTypeSelected <- renderUI({
           tagList(
-            selectizeInput("selectTrench", "Select a trench", multiple = TRUE, choices = c("All",TrenchChoices), options=list(create=TRUE))
+            selectizeInput("selectTrench", "Trench", multiple = TRUE, choices = c("All",TrenchChoices), options=list(create=TRUE))
           )
         })
         req(input$selectTrench)
@@ -230,7 +230,7 @@ shinyApp(
         
         output$LocusTypeSelected <- renderUI({
           tagList(
-            selectInput("selectTrench", "Select a trench", selected = "TRENCH NA", multiple = FALSE, choices = "TRENCH NA")
+            selectInput("selectTrench", "Trench", selected = "TRENCH NA", multiple = FALSE, choices = "TRENCH NA")
           )
         })
         output$TrenchSelected <- renderUI({
