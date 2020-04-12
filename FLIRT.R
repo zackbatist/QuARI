@@ -54,7 +54,6 @@ activitylog <- dbReadTable(pool, 'activitylog')
 activitylog
 contexts <- dbReadTable(pool, 'contexts')
 trenches <- contexts[2:5]
-
 #function to select trench and return associated contexts
 chooseTrench <- function(trench) {
   trenches[trenches$Trench == trench,]$Context
@@ -65,8 +64,6 @@ transects <- str_pad(transects, 2, pad="0")
 chooseTransect <- function(transect) {
   transectcollectionpoints[transectcollectionpoints$Transect == transect,]$CollectionPointID
 }
-
-##begin Shiny app
 
 shinyApp(
   ui <- fluidPage(#theme = shinytheme("cerulean"),
@@ -101,6 +98,7 @@ shinyApp(
                            )
                          ),
                          fluidRow(
+                           br(),
                            column(width = 8,
                                   wellPanel(htmlOutput("SummaryInfo"))
                            )
@@ -120,8 +118,17 @@ shinyApp(
                                      tabPanel("Photos",
                                               fluidRow(
                                                 br(),
-                                                column(width = 6,
-                                                       textInput("newPhotoFilename", "Enter complete filename of new photo"))),
+                                                column(width = 2,
+                                                       textInput("newPhotoFilename", "Filename (incl. extension)")),
+                                                column(width = 2,
+                                                       textInput("newPhotoPhotographer", "Photographer")),
+                                                column(width = 2,
+                                                       textInput("newPhotoCamera", "Camera")),
+                                                column(width = 2,
+                                                       dateInput("newPhotoDate", "Date")),
+                                                column(width = 2,
+                                                       textInput("newPhotoNotes", "Notes"))
+                                              ),
                                               fluidRow(
                                                 column(width = 2,
                                                        actionButton("newPhoto", "Add new"))),
@@ -131,16 +138,17 @@ shinyApp(
                                      ),
                                      tabPanel("Illustrations",
                                               fluidRow(
-                                                column(width = 6, align = "center", h5("Enter a drawing number (format DR####) or a file name or both. If no file name is entered, drawing number will become the file name."))
-                                              ),
-                                              fluidRow(
                                                 br(),
-                                                column(width = 3,
-                                                       textInput("newIllustrationDrawingNumber", "Enter complete drawing number of new illustration")
-                                                ),
-                                                column(width = 3,
-                                                       textInput("newIllustrationFilename", "Enter complete filename of new illustration")
-                                                )
+                                                column(width = 2,
+                                                       textInput("newIllustrationFilename", "Filename (incl. extension) of digital copy")),
+                                                column(width = 2,
+                                                       textInput("newIllustrationIllustrator", "Illustrator")),
+                                                column(width = 2,
+                                                       dateInput("newIllustrationDate", "Date illustrated")),
+                                                column(width = 2,
+                                                       textInput("newIllustrationYear", "Year illustrated")),
+                                                column(width = 2,
+                                                       textInput("newIllustrationNotes", "Notes"))
                                               ),
                                               fluidRow(
                                                 column(width = 2,
@@ -174,7 +182,7 @@ shinyApp(
     
     
     ###Selecting trenches / specific loci based on what LocusType is chosen 
-    ###**FUNCTIONAL BUT selectTrench IS NOT DISPLAYING THE SELECTED OPTION (but it /is/ selected)
+    ###**FUCTIONAL BUT selectTrench IS NOT DISPLAYING THE SELECTED OPTION (but it /is/ selected)
     observe({
       if (input$LocusType == "Context") {
         TrenchChoices <- unique(trenches$Trench)
@@ -247,9 +255,6 @@ shinyApp(
     })
     
     
-    
-    
-    
     #function to be used below to filter for response to query
     QueryResults <- function(QueryInputs) {
       Level2 <- dbReadTable(pool, 'level2')
@@ -266,7 +271,7 @@ shinyApp(
       filtered
     }
     
-
+    
     
     observeEvent(input$query, {
       QueryTermLocus <- if(!is.null(input$Locus)) {input$Locus} else {""}
@@ -368,16 +373,17 @@ shinyApp(
           output$Level3Table <- DT::renderDataTable(
             datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
         }
-        else 
+        else {
           output$Level3Table <- DT::renderDataTable(
             datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
+        }
+        
         
         #if the 'Photo' or 'Illustration' cell is selected in the Level 3 table, that generates a query about any associated photos or illustrations.  That query returns a table of existing photos/illustrations, into which new photos/illustrations can be entered if necessary. If new ones are entered, check db to generate next photo/illustration ID and assign that to the one(s) entered.        
-        ##need also to write Photo/Drawing ID to appropriate column of Level 3 record
-        ##and why are these writing multiple records?
-        observe({   #because other observes are inside this one, those actions seem to be doubling (or more) - happening when cells are selected rather than or in addition to when buttons are pressed
+        
+        
+        observe({
           SelectedCells <- input$Level3Table_cells_selected   #col 7 comes from selection of illustration, 8 from photo
-          #first create empty tables 
           if (length(SelectedCells)) {
             Level3 <- dbReadTable(pool, 'level3')
             Level3IndexValues <<- ifelse(SelectedCells[1,2] %in% c(7,8), SelectedCells, c(0,0))
@@ -390,169 +396,156 @@ shinyApp(
               Photos <- dbReadTable(pool, 'photos')
               output$PhotosTable <- DT::renderDataTable(
                 datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
-              #    repeat for illustrations
+              
               Illustrations <- dbReadTable(pool, 'illustrations')
               output$IllustrationsTable <- DT::renderDataTable(
                 datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
             }
-            
             else {
               PhotosSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
+              PhotosSelection_str <<- as.character(PhotosSelection)
               Photos <- dbReadTable(pool, 'photos')
               PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection)
               output$PhotosTable <- DT::renderDataTable(
                 datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
               
-              observeEvent(input$newPhoto, once=T, {
-                newPhotoResponses <- reactiveValues(
-                  NewPhoto = input$newPhotoFilename)  
-                NewPhotoValue <- as.character(newPhotoResponses$NewPhoto)
-                Photos <- dbReadTable(pool, 'photos') # re-grab in case of duplicates
-                #increment photo ID - get current list, choose highest number, increment, and include in glue_sql statement (currently handled by mySQL, which auto-increments when row is inserted)
-                ###**CURRENTLY MAKING TWO ENTRIES IN THE DATABASE (DOUBLE ENTERING)?
-                contextUpdate <- Level3[Level3$ArtefactID == PhotosSelection,]$Locus
-                newPhotoInsert <<- glue::glue_sql("INSERT INTO `photos` (`Filename`, `ArtefactID`,`Context`) VALUES ({NewPhotoValue}, {PhotosSelection},{contextUpdate})"
-                                                  , .con = pool)
-                dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
-                Photos <- dbReadTable(pool, 'photos')
-                PhotosFilterResults <- filter(Photos, ArtefactID==PhotosSelection)
-                output$PhotosTable <- DT::renderDataTable(
-                  datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
-                
-                # #once this new row is added, need to populate appropriate field of appropriate row in Level 3 table with the ID, using ArtefactID as index
-                Level3 <- dbReadTable(pool, 'level3')
-                # #need to get PhotoID from photo table, indexing by ArtefactID
-                # Level3[Level3$ArtefactID==PhotosSelection,]$Photos <- filter(Photos, ArtefactID==PhotosSelection)$PhotoID #this is not strictly necessary, but has the benefit of updating the Level3 database that is in memory so it doesn't need to be refreshed
-                # newPhoto <<- Level3[Level3$ArtefactID==PhotosSelection,]$Photos
-                newPhoto <<- filter(Photos, ArtefactID==PhotosSelection)$PhotoID
-                # #then update db
-                Level3PhotoUpdate <<- glue::glue_sql("UPDATE `level3` SET `Photos` = CONCAT(IFNULL(`Photos`,''), ',' ,{newPhoto}) WHERE `ArtefactID` = {PhotosSelection}"
-                                                     , .con = pool)
-                k <- 1
-                for (k in (1:length(newPhoto))) {
-                  dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate[k]))
-                }
-                #  dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate))  ##but really this shouldn't be necessary; should be handled by a relate in MySQL, and here could just refresh the table displayed in FLIRT
-                
-                
-                updateTextInput(session, "newPhotoFilename", value = "")
-                
-              })
-              
-              #   
-              #repeat for Illustrations
               IllustrationsSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
+              IllustrationsSelection_str <<- as.character(IllustrationsSelection)
               Illustrations <- dbReadTable(pool, 'illustrations')
-              IllustrationsFilterResults <- filter(Illustrations, ArtefactID==IllustrationsSelection)
+              IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection)
               output$IllustrationsTable <- DT::renderDataTable(
                 datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
-              
-              
-              
-              observeEvent(input$newIllustration, once=T, {
-                
-                ##to avoid crash if you try to make a new entry with neither filename nor drawing ID: 
-                if((is.null(input$newIllustrationFilename)) & (is.null(input$newIllustrationDrawingNumber))){
-                  req(input$newIllustrationFilename & input$newIllustrationDrawingNumber)
-                } 
-                
-                else {
-                  newIllustrationResponses <- 
-                    reactiveValues(
-                      NewIllustration = input$newIllustrationFilename,
-                      NewIllustrationDrawing = input$newIllustrationDrawingNumber
-                    )
-                  
-                  
-                  ##generate drawing number if one isn't entered:
-                  getnewid <- glue::glue_sql("SELECT MAX(DrawingID) FROM `illustrations`", .con = pool)
-                  latestid <- as.character(dbGetQuery(pool, getnewid))
-                  latestidnum <- as.numeric((str_extract(latestid, "[0-9]+")))
-                  newid <- latestidnum + 1
-                  idstring <- as.character(paste0("DR", str_pad(newid, 4, pad="0")))
-                  
-                  
-                  NewIllustrationDrawingValue <<- 
-                    ifelse(
-                      newIllustrationResponses$NewIllustrationDrawing == "",
-                      as.character(idstring),
-                      as.character(newIllustrationResponses$NewIllustrationDrawing)
-                    )
-                  
-                  NewIllustrationValue <<- 
-                    ifelse(
-                      newIllustrationResponses$NewIllustration == "",
-                      as.character(newIllustrationResponses$NewIllustrationDrawing),
-                      as.character(newIllustrationResponses$NewIllustration)
-                    )
-                  
-                  
-                  Illustrations <- dbReadTable(pool, 'illustrations') # re-grab in case of duplicates
-                  #increment illustration ID - get current list, choose highest number, increment, and include in glue_sql statement
-                  contextUpdate <- Level3[Level3$ArtefactID == IllustrationsSelection, ]$Locus
-                  newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `ArtefactID`, `DrawingID`,`Locus`) VALUES ({NewIllustrationValue}, {IllustrationsSelection}, {NewIllustrationDrawingValue},{contextUpdate})"
-                                                           , .con = pool)
-                  dbExecute(pool, sqlInterpolate(ANSI(), newIllustrationInsert))
-                  Illustrations <- dbReadTable(pool, 'illustrations')
-                  IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection)
-                  output$IllustrationsTable <- DT::renderDataTable(
-                    datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
-                  
-                  # #need to get IllustrationID from photo table, indexing by ArtefactID
-                  # Level3[Level3$ArtefactID==IllustrationsSelection,]$Illustration <- filter(Illustrations, ArtefactID==IllustrationsSelection)$DrawingID #this is not strictly necessary, but has the benefit of updating the Level3 database that is in memory so it doesn't need to be refreshed
-                  # newIllustration <<- Level3[Level3$ArtefactID==IllustrationsSelection,]$Illustration
-                  newIllustration <<- filter(Illustrations, ArtefactID==IllustrationsSelection)$DrawingID
-                  #then update db
-                  Level3IllustrationUpdate <<- glue::glue_sql("UPDATE `level3` SET `Illustration` = CONCAT(IFNULL(`Illustration`,''),', ',{newIllustration}) WHERE `ArtefactID` = {IllustrationsSelection}"
-                                                              , .con = pool)
-                  k <- 1
-                  for (k in (1:length(newIllustration))) {
-                    dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationUpdate[k]))
-                  }
-                  # dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationUpdate))
-                  
-                  ##CLEAR INPUTS AT THE END
-                  updateTextInput(session, "newIllustrationDrawingNumber", value = "")
-                  updateTextInput(session, "newIllustrationFilename", value = "")
-                  
-                  
-                }
-              })
-              
-              
             }
-          }
-          else {
-            Photos <- dbReadTable(pool, 'photos')
-            PhotosFilterResults <- filter(Photos, ArtefactID=="None")
-            output$PhotosTable <- DT::renderDataTable(
-              datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
-            #repeat for Illustrations
-            Illustrations <- dbReadTable(pool, 'illustrations')
-            IllustrationsFilterResults <- filter(Illustrations, ArtefactID=="None")
-            output$IllustrationsTable <- DT::renderDataTable(
-              datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+            
           }
         })
+        
       }
       else {
         Level3 <- dbReadTable(pool, 'level3')
         Level3FilterResults <- filter(Level3, Blank=="None")
         output$Level3Table <- DT::renderDataTable(
           datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
+        
+        Photos <- dbReadTable(pool, 'photos')
+        PhotosFilterResults <- filter(Photos, ArtefactID=="None")
+        output$PhotosTable <- DT::renderDataTable(
+          datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+        
+        Illustrations <- dbReadTable(pool, 'illustrations')
+        IllustrationsFilterResults <- filter(Illustrations, ArtefactID=="None")
+        output$IllustrationsTable <- DT::renderDataTable(
+          datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
       }
     })
     
-    observeEvent(input$Level3Table_cell_edit, {
-      CellsToEdit <<- input$Level3Table_cell_edit
-      ARtoEdit <<- Level3FilterResults[CellsToEdit$row, 7] #returns artifact (whichever column)
-      ColtoEdit <<- colnames(Level3FilterResults)[CellsToEdit$col+2] #change
-      #then use that AR and the column name of CellsToEdit[2] to identify cell to edit in Level3 table
-      ValueToUpdate <<- Level3[Level3$ArtefactID == ARtoEdit, ColtoEdit]
-      UpdatedValue <<- CellsToEdit$value #then get value from edited cell and write to db
+    observeEvent(input$newPhoto, once=F, {
+      newPhotoResponses <- reactiveValues(
+        NewPhotoFilename = input$newPhotoFilename,
+        NewPhotoPhotographer = input$newPhotoPhotographer,
+        NewPhotoCamera = input$newPhotoCamera,
+        NewPhotoDate = input$newPhotoDate,
+        NewPhotoNotes = input$newPhotoNotes
+      )
+      NewPhotoFilenameValue <- as.character(newPhotoResponses$NewPhotoFilename)
+      NewPhotoPhotographerValue <- as.character(newPhotoResponses$NewPhotoPhotographer)
+      NewPhotoCameraValue <- as.character(newPhotoResponses$NewPhotoCamera)
+      NewPhotoDateValue <- as.character(newPhotoResponses$NewPhotoDate)
+      NewPhotoNotesValue <- as.character(newPhotoResponses$NewPhotoNotes)
+      Photos <- dbReadTable(pool, 'photos')
+      PhotoNumbers <- as.character(Photos$PhotoID)
+      PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
+      HightestPH <- max(PhotoNumbers_int)
+      NewPH <-  paste0("PH", HightestPH + 1)
+      if (str_length(NewPH) < 7) {
+        ExtraZeroesPH_quant <- 7 - str_length(NewPH)
+        ExtraZeroesPH <- str_dup("0", ExtraZeroesPH_quant)
+        FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
+        NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
+      }
+      
+      LocusForNewPhoto <- unlist(Level3FilterResults[Level3IndexValues[1], 2])
+      LocusTypeForNewPhoto <- unlist(Level3FilterResults[Level3IndexValues[1], 3])
+      newPhotoInsert <<- glue::glue_sql("INSERT INTO `photos` (`Filename`, `Photographer`, `Camera`, `Date`, `Notes`, `ArtefactID`, `PhotoID`, `Locus`, `LocusType`) VALUES ({NewPhotoFilenameValue}, {NewPhotoPhotographerValue}, {NewPhotoCameraValue}, {NewPhotoDateValue}, {NewPhotoNotesValue}, {PhotosSelection_str}, {NewPH}, {LocusForNewPhoto}, {LocusTypeForNewPhoto})", .con = pool)
+      dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
+      
+      Photos <- dbReadTable(pool, 'photos')
+      PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection_str)
+      output$PhotosTable <<- DT::renderDataTable(
+        datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+      updateTextInput(session, "newPhotoFilename", value = "")
+      Level3 <<- dbReadTable(pool, 'level3')
+      Level3Photos <<- filter(Photos, ArtefactID==PhotosSelection)$PhotoID
+      Level3Photos_str <<- as.character(paste(Level3Photos, collapse =  "; "))
+      Level3PhotoUpdate <<- glue::glue_sql("UPDATE `level3` SET `Photos` = {Level3Photos_str} WHERE `ArtefactID` = {PhotosSelection}", .con = pool)
+      dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate))
+      
+      # For some unknown reason, refreshing this table does not include PhotoIDs that do not contain non-number characters. For instance, if I add a photo with filename "1234", this will be added to the database in all its proper places, but this value will not be pulled down or displayed here. Better to use '1234.jpeg' or something of that sort (but not adding the '.jpeg' part automatically since it is not reasonable to assume that this is how files will be formatted (i.e. the distinction between '.jpeg' and '.jpg')).
+      # The Photos column in the Level3 data table is too narrow to show more than one or two PhotoIDs.
+      Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+      output$Level3Table <- DT::renderDataTable(
+        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
+      
     })
     
-    observeEvent(input$Level3EditButton, {        #use 'Edit cell' button to save individual cell edits
+    observeEvent(input$newIllustration, once=F, {
+      newIllustrationResponses <<- reactiveValues(
+        NewIllustrationFilename = input$newIllustrationFilename,
+        NewIllustrationIllustrator = input$newIllustrationIllustrator,
+        NewIllustrationDate = input$newIllustrationDate,
+        NewIllustrationYear = input$newIllustrationYear,
+        NewIllustrationNotes = input$newIllustrationNotes
+      )
+      NewIllustrationFilenameValue <<- as.character(newIllustrationResponses$NewIllustrationFilename)
+      NewIllustrationIllustratorValue <<- as.character(newIllustrationResponses$NewIllustrationIllustrator)
+      NewIllustrationDateValue <<- as.character(newIllustrationResponses$NewIllustrationDate)
+      NewIllustrationYearValue <<- as.character(newIllustrationResponses$NewIllustrationYear)
+      NewIllustrationNotesValue <<- as.character(newIllustrationResponses$NewIllustrationNotes)
+      Illustrations <- dbReadTable(pool, 'illustrations')
+      IllustrationNumbers <<- as.character(Illustrations$IllustrationID)
+      IllustrationNumbers_int <<- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
+      HightestDR <<- max(IllustrationNumbers_int)
+      NewDR <<-  paste0("DR", HightestDR + 1)
+      if (str_length(NewDR) < 7) {
+        ExtraZeroesDR_quant <- 7 - str_length(NewDR)
+        ExtraZeroesDR <- str_dup("0", ExtraZeroesDR_quant)
+        FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
+        NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
+      }
+      
+      LocusForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 2])
+      LocusTypeForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 3])
+      newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `Illustrator`, `Date`, `Year`, `Notes`, `ArtefactID`, `IllustrationID`, `Locus`, `LocusType`) VALUES ({NewIllustrationFilenameValue}, {NewIllustrationIllustratorValue}, {NewIllustrationDateValue}, {NewIllustrationYearValue}, {NewIllustrationNotesValue}, {IllustrationsSelection_str}, {NewDR}, {LocusForNewIllustration}, {LocusTypeForNewIllustration})", .con = pool)
+      dbExecute(pool, sqlInterpolate(ANSI(), newIllustrationInsert))
+      
+      Illustrations <- dbReadTable(pool, 'illustrations')
+      IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection_str)
+      output$IllustrationsTable <<- DT::renderDataTable(
+        datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+      updateTextInput(session, "newIllustrationFilename", value = "")
+      Level3 <<- dbReadTable(pool, 'level3')
+      Level3Illustrations <<- filter(Illustrations, ArtefactID==IllustrationsSelection)$IllustrationID
+      Level3Illustrations_str <<- as.character(paste(Level3Illustrations, collapse =  "; "))
+      Level3IllustrationsUpdate <<- glue::glue_sql("UPDATE `level3` SET `Illustrations` = {Level3Illustrations_str} WHERE `ArtefactID` = {IllustrationsSelection}", .con = pool)
+      dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationsUpdate))
+      
+      # For some unknown reason, refreshing this table does not include PhotoIDs that do not contain non-number characters. For instance, if I add a photo with filename "1234", this will be added to the database in all its proper places, but this value will not be pulled down or displayed here. Better to use '1234.jpeg' or something of that sort (but not adding the '.jpeg' part automatically since it is not reasonable to assume that this is how files will be formatted (i.e. the distinction between '.jpeg' and '.jpg')).
+      Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+      output$Level3Table <- DT::renderDataTable(
+        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
+      
+    })
+    
+    
+    observeEvent(input$Level3Table_cell_edit, {
+      CellsToEdit <<- input$Level3Table_cell_edit
+      ARtoEdit <<- Level3FilterResults[CellsToEdit$row, 7]
+      ColtoEdit <<- colnames(Level3FilterResults)[CellsToEdit$col+2]
+      ValueToUpdate <<- Level3[Level3$ArtefactID == ARtoEdit, ColtoEdit]
+      UpdatedValue <<- CellsToEdit$value
+    })
+    
+    observeEvent(input$Level3EditButton, {
       EditedCell <<- glue::glue_sql("UPDATE `level3` SET {`ColtoEdit`} = {UpdatedValue} WHERE `ArtefactID` = {ARtoEdit}", .con = pool)
       dbExecute(pool, sqlInterpolate(ANSI(), EditedCell))
     })
@@ -561,47 +554,6 @@ shinyApp(
     
     #-----/TableFilters-----#
     
-    
-    #has this code below to check/generate IDs for photos/illustrations/etc been implemented?  Should it be written here as functions that can be called above?
-    
-    #-----New IDs-----#
-    Level3 <- dbReadTable(pool, 'level3')
-    ArtefactNumbers <- as.character(Level3$ArtefactID)
-    ArtefactNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", ArtefactNumbers))
-    HightestAR <- max(ArtefactNumbers_int)
-    NewAR <-  paste0("AR", HightestAR + 1)
-    if (str_length(NewAR) < 8) {
-      ExtraZeroesAR_quant <- 8 - str_length(NewAR)
-      ExtraZeroesAR <- str_dup("0", ExtraZeroesAR_quant)
-      FixedPrefixAR <- paste0("AR", ExtraZeroesAR)
-      NewAR <- gsub("(^..)", FixedPrefixAR, NewAR)
-    }
-    
-    Photos <- dbReadTable(pool, 'photos')
-    PhotoNumbers <- as.character(Photos$PhotoID)
-    PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
-    HightestPH <- max(PhotoNumbers_int)
-    NewPH <-  paste0("PH", HightestPH + 1)
-    if (str_length(NewPH) < 7) {
-      ExtraZeroesPH_quant <- 7 - str_length(NewPH)
-      ExtraZeroesPH <- str_dup("0", ExtraZeroesPH_quant)
-      FixedPrefixPH <- paste0("PH", ExtraZeroesPH)
-      NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
-    }
-    
-    Illustrations <- dbReadTable(pool, 'artefactillustrations') #the most up to date data on drawings has not yet been imported to the database
-    IllustrationNumbers <- as.character(Illustrations$IllustrationNumber)
-    IllustrationNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
-    HightestDR <- max(IllustrationNumbers_int)
-    NewDR <-  paste0("DR", HightestDR + 1)
-    if (str_length(NewDR) < 6) {
-      ExtraZeroesDR_quant <- 6 - str_length(NewDR)
-      ExtraZeroesDR <- str_dup("0", ExtraZeroesDR_quant)
-      FixedPrefixDR <- paste0("DR", ExtraZeroesDR)
-      NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
-    }
-    
-    #-----/New Ids-----#
     
     #-----NewRecords-----#
     observeEvent(input$NewRecordButton, {
@@ -944,7 +896,7 @@ shinyApp(
     #-----EditRecords-----#
     observeEvent(input$EditButton, { # the selection has to be reset, currently have to de-select then select again
       sel <<- SelectedRowEdit
-
+      
       if (length(sel)) {  #alternative that allows selection of multiple rows
         Level2IndexValues <- sel
         Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
@@ -991,7 +943,7 @@ shinyApp(
                                                  ),
                                                  DT::dataTableOutput('Level3TableModal')
                                         )#,
-  
+                                        
                             ),
                             footer = (
                               tagList(
@@ -1040,7 +992,7 @@ shinyApp(
       
       
     }) # close input$editButton
-  
+    
     
     #when 'Apply Update' button is clicked:
     observeEvent(input$SaveBatch, {
@@ -1096,7 +1048,7 @@ shinyApp(
               dbExecute(pool, BatchUpdateLevel3Query_Patination[e])
             }
           }
-  
+          
           
           # reset
           updateSelectInput(session, "ModalRawMaterialSelect", selected = "")
@@ -1110,7 +1062,7 @@ shinyApp(
           
           sel <<- SelectedRowEdit
           Level2IndexValues <- sel
- 
+          
           Level3Selection <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
           Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
           Level3 <- dbReadTable(pool, 'level3')
@@ -1124,7 +1076,7 @@ shinyApp(
             datatable(Level3FilterResultsEdit[,-c(1:6)], rownames = FALSE, selection=list(mode="single", target="cell"), editable = TRUE, escape = FALSE, options = list(scrollX=TRUE, searching =FALSE)))
           
           
-
+          
           
           output$BatchErrors <- renderText("Update applied.")
         } # close input$SaveBatch, if no conflicts
@@ -1180,6 +1132,8 @@ shinyApp(
       AllRows <<- sum(Level2FilterResultsEdit$Quantity)
       updateSelectInput(session, "ModalQuantitySelect", selected = AllRows)
     })
+    
+    
     
     
     
