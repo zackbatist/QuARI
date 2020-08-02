@@ -37,4 +37,6 @@ Thumbs.db
 
 .RData
 .Rhistory
+.Rproj.user
+
 keys.R
