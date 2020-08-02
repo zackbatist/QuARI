@@ -1,8 +1,6 @@
 # Flexible Lithic Recording Tool [FLiRT]
 FLiRT is a database interface designed to facilitate the irregular, iterative, and non-linear workflows that are commonly employed in lithic analysis. Specifically, it is designed to facilitate workflows that tack back and forth between recording assemblage-level and artefact-level data – often beginning with the former and subsequently adding the latter – and that may involve addition of particular kinds of data for limited subsets of artefacts.
 
-[link to demo instance on shinyapps.io]
-
 ## Installation and setup
 ### Connecting with a database
 FLiRT is a database interface, not a database. It establishes a connection with your database, which must be set up independently.
@@ -33,33 +31,15 @@ The app might take longer to initiate the first time it is launched if the scrip
 
 FLiRT has not been tested for use with the RStudio Server client.
 
-#### Using an R Shiny Server instance
-FLiRT can also be hosted on an R Shiny Server instance.
+#### Using Shiny Server
+FLiRT can also be hosted on a Shiny Server instance.
 
 Follow the [Shiny Server Adminstrator's Guide](https://docs.rstudio.com/shiny-server/) or [this much more succinct guide](https://www.linode.com/docs/development/r/how-to-deploy-rshiny-server-on-ubuntu-and-debian/) for installation and setup instructions.
 
-It may be necessary to manually install packages that FLiRT depends upon as well, depending on the memory specifications of the server. To do this, in the command line run the following commands in sequence:
+Once R and Shiny Server are installed and setup, move the FLiRT directory to a dedicated directory within Shiny Server and rename `FLiRT.R` to `app.R`.
 ```bash
-sudo su - -c "R -q -e "install.packages('shiny', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('xtable', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('DT', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('dplyr', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('reshape2', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('DBI', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('RMariaDB', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('splitstackshape', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('devtools', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('pool', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('purrr', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('shinyjs', repos='http://cran.rstudio.com/')""
-sudo su - -c "R -q -e "install.packages('stringr', repos='http://cran.rstudio.com/')""
-```
-
-Once R and Shiny Server are installed and setup, create a directory for FLiRT and then place `FLiRT.R` (while renaming to `app.R`, as per Shiny Server's default configuration) and `keys.r` within that directory.
-```bash
-sudo mkdir /srv/shiny-server/FLiRT/
-mv FLiRT.R /srv/shiny-server/FLiRT/app.R
-mv keys.R /srv/shiny-server/FLiRT
+sudo mvdir FLiRT /srv/shiny-server/FLiRT/
+mv /srv/shiny-server/FLiRT/FLiRT.R /srv/shiny-server/FLiRT/app.R
 ```
 
 Then restart Shiny Server:
