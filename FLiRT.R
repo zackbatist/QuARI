@@ -291,8 +291,8 @@ shinyApp(
       }
       
       if (nrow(CurrentResults) == 0) {
-        output$SummaryInfo <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.") 
-        output$SummaryInfo <- renderText(paste("No lithics match criteria."))
+        output$SummaryInfo <- renderPrint("No records found matching the criteria specified.") 
+        output$SummaryInfo <- renderText(paste("No records found matching the criteria specified."))
         output$Level2Table <- renderDataTable(datatable(CurrentResults))
       }
       
