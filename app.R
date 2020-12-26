@@ -221,7 +221,7 @@ shinyApp(
                 }
             })
         
-        #function to be used below to filter for response to query
+        # function to be used below to filter for response to query
         QueryResults <- function(QueryInputs) {
             Level2 <- dbReadTable(pool, 'level2')
             filtered <- Level2
@@ -237,6 +237,7 @@ shinyApp(
             filtered
         }
         
+        # filter the data tables based on user inputs
         observeEvent(input$query, {
             QueryTermLocus <- if(!is.null(input$Locus)) {input$Locus} else {""}
             QueryTermPeriod <- if(!is.null(input$Period)) {input$Period} else {""}
@@ -272,7 +273,7 @@ shinyApp(
                 Level3Summary <- filter(Level3, Locus %in% CurrentResults$Locus)
                 IllustrationSummary <- sum(!is.na(Level3Summary$Illustration) & !is.null(Level3Summary$Illustration) & Level3Summary$Illustration != "")
                 PhotoSummary <- sum(!is.na(Level3Summary$Photos))  
-                output$SummaryInfo <- renderText(paste("Total artifacts:<b>" , sum(CurrentResults$Quantity), "</b>Total drawn:<b>", IllustrationSummary, "</b>Total photo'd:<b>", PhotoSummary,"</b>", sep=" "))
+                output$SummaryInfo <- renderText(paste("Total artifacts:<b>" , sum(CurrentResults$Quantity), "</b>Total drawn:<b>", IllustrationSummary, "</b>Total photographed:<b>", PhotoSummary,"</b>", sep=" "))
                 
                 
                 observe({
@@ -285,6 +286,9 @@ shinyApp(
         #-----/QueryLookup-----#
         
         #-----TableFilters-----#
+        # Select a row or cell to generate new table with rows that are to be filled on
+        # When a Level 2 row is selected, generate Level3FilterResults; then check to see if nrow(Level3FilterResults) is equal to the quantity in the selected Level 2 row. If it is, no further action needed (Level 3 table generated anyway).  If the number of existing Level 3 records is less than the quantity in the selected Level 2 row, generate Level 3 records to make up the difference.  Compare sel$Quantity to nrow(Level3FilterResults). If nrow(Level3FilterResults) < sel$Quantity , calculate difference, and then get updated Level3 table and generate next n records, filling them with values from sel. For each selected row in sel, go through this process separately (in for loop?).
+        
         observe({
             sel <- input$Level2Table_rows_selected
             
@@ -292,14 +296,6 @@ shinyApp(
                 Level2IndexValues <- sel
                 Level3Selection <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
                 Level3 <- dbReadTable(pool, 'level3')
-                
-                #------------
-                #select a cell to generate new table with rows/artifact which is to be filled in
-                
-                #when a Level 2 row is selected, generate Level3FilterResults; then check to see if nrow(Level3FilterResults) is equal to the quantity in the selected Level 2 row. If it is, no further action needed (Level 3 table generated anyway).  If the number of existing Level 3 records is less than the quantity in the selected Level 2 row, generate Level 3 records to make up the difference.  Compare sel$Quantity to nrow(Level3FilterResults). If nrow(Level3FilterResults) < sel$Quantity , calculate difference, and then get updated Level3 table and generate next n records, filling them with values from sel. For each selected row in sel, go through this process separately (in for loop?).
-                # 
-                
-                #-------
                 
                 Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
                 output$Level3Table <- DT::renderDataTable(
@@ -343,7 +339,7 @@ shinyApp(
                 }
                 
                 
-                #if the 'Photo' or 'Illustration' cell is selected in the Level 3 table, that generates a query about any associated photos or illustrations.  That query returns a table of existing photos/illustrations, into which new photos/illustrations can be entered if necessary. If new ones are entered, check db to generate next photo/illustration ID and assign that to the one(s) entered.        
+                # If the 'Photo' or 'Illustration' cell is selected in the Level 3 table, that generates a query about any associated photos or illustrations.  That query returns a table of existing photos/illustrations, into which new photos/illustrations can be entered if necessary. If new ones are entered, check db to generate next photo/illustration ID and assign that to the one(s) entered.        
                 
                 
                 observe({
@@ -492,8 +488,8 @@ shinyApp(
             Level3Illustrations_str <<- as.character(paste(Level3Illustrations, collapse =  "; "))
             Level3IllustrationsUpdate <<- glue::glue_sql("UPDATE `level3` SET `Illustrations` = {Level3Illustrations_str} WHERE `ArtefactID` = {IllustrationsSelection}", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationsUpdate))
-            
-            # For some unknown reason, refreshing this table does not include PhotoIDs that do not contain non-number characters. For instance, if I add a photo with filename "1234", this will be added to the database in all its proper places, but this value will not be pulled down or displayed here. Better to use '1234.jpeg' or something of that sort (but not adding the '.jpeg' part automatically since it is not reasonable to assume that this is how files will be formatted (i.e. the distinction between '.jpeg' and '.jpg')).
+
+                        
             Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
             output$Level3Table <- DT::renderDataTable(
                 datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = T))
@@ -512,8 +508,6 @@ shinyApp(
                 dbExecute(pool, sqlInterpolate(ANSI(), EditedCell))
             }
         })
-        
-        
         #-----/TableFilters-----#
         
         
@@ -1057,7 +1051,7 @@ shinyApp(
         
         #-----ActivityLog-----#
         activitylog <- dbReadTable(pool, 'activitylog')
-        #activitylog
+        activitylog
         output$ActivityLogDisplay <- renderDataTable(datatable(activitylog[,-1], rownames = FALSE, selection=list(mode="single", target="row"), options=list(order=list(list(1, 'desc')), pageLength=20)))
         
         #-----/ActivityLog-----#
