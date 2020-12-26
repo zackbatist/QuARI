@@ -181,78 +181,75 @@ shinyApp(
             datatable(Level3[,-1], rownames = FALSE))
         
         
-        ###Selecting trenches / specific loci based on what LocusType is chosen 
-        ###**FUCTIONAL BUT selectTrench IS NOT DISPLAYING THE SELECTED OPTION (but it /is/ selected)
-        observe({
-            if (input$LocusType == "Context") {
-                TrenchChoices <- unique(trenches$Trench)
-                output$LocusTypeSelected <- renderUI({
-                    tagList(
-                        selectizeInput("selectTrench", "Trench", multiple = TRUE, choices = c("All",TrenchChoices), options=list(create=TRUE))
-                    )
-                })
-                req(input$selectTrench)
-                if (input$selectTrench != "All") {  
-                    currentChoices <<- chooseTrench(input$selectTrench)
-                    output$TrenchSelected <- renderUI({
-                        tagList(
-                            selectizeInput("Locus", "Locus", selected = "", multiple = TRUE, choices = currentChoices, options=list(create=TRUE)))
-                    })
-                }
-                else {
-                    #query inputs Locus field should a) take new entries and b) re-populate Locus options following entry of new Loci
-                    currentChoices <<- allloci %>% select(Locus) %>% filter(allloci$LocusType == as.character(input$LocusType))
-                    output$TrenchSelected <- renderUI({
-                        tagList(
-                            selectizeInput("Locus", "Locus", choices = currentChoices, multiple = TRUE, selected = "", options=list(create=TRUE)))
-                    })
-                }
-            }
-            
-            if (input$LocusType == "Transect") {
-                output$LocusTypeSelected <- renderUI({
-                    tagList(
-                        selectizeInput("selectTrench", "Select a transect", selected = "", multiple = T, choices = c("All",transects))
-                    )
-                })
-                req(input$selectTrench)
-                if (input$selectTrench != "All"){
-                    currentChoices_transects <<- chooseTransect(input$selectTrench)
-                    output$TrenchSelected <- renderUI({
-                        tagList(
-                            selectizeInput("Locus", "Locus", choices = currentChoices_transects, multiple = TRUE, selected = "", options=list(create=TRUE))  
-                        )
-                    })  
-                }
-                else {
-                    currentChoices_transects <<- transectcollectionpoints %>% select(CollectionPointID) %>% filter(transectcollectionpoints$Transect == as.character(input$selectTrench))
-                    output$TrenchSelected <- renderUI({
-                        tagList(
-                            selectizeInput("Locus", "Locus", choices = currentChoices_transects, multiple = TRUE, selected = "", options=list(create=TRUE)) #filter transectcollectionpoints for all collection points associated with selected transect(s)
-                        )
-                    })
-                }
-            }
-            
-            
-            if (input$LocusType == "Grid" | input$LocusType == "Grab" | input$LocusType == "XFind") {
-                
-                output$LocusTypeSelected <- renderUI({
-                    tagList(
-                        selectInput("selectTrench", "Trench", selected = "TRENCH NA", multiple = FALSE, choices = "TRENCH NA")
-                    )
-                })
-                output$TrenchSelected <- renderUI({
-                    tagList(
-                        selectizeInput("Locus", "Locus", choices = allloci %>% select(Locus) %>% filter(allloci$LocusType == as.character(input$LocusType)), multiple = TRUE, selected = "", options=list(create=TRUE))
-                    )
-                })  
-            }
-            
-            
-            
-            
-        })
+        # ###Selecting trenches / specific loci based on what LocusType is chosen 
+        # ###**FUCTIONAL BUT selectTrench IS NOT DISPLAYING THE SELECTED OPTION (but it /is/ selected)
+        # observe({
+        #     if (input$LocusType == "Context") {
+        #         TrenchChoices <- unique(trenches$Trench)
+        #         output$LocusTypeSelected <- renderUI({
+        #             tagList(
+        #                 selectizeInput("selectTrench", "Trench", multiple = TRUE, choices = c("All",TrenchChoices), options=list(create=TRUE))
+        #             )
+        #         })
+        #         req(input$selectTrench)
+        #         if (input$selectTrench != "All") {  
+        #             currentChoices <<- chooseTrench(input$selectTrench)
+        #             output$TrenchSelected <- renderUI({
+        #                 tagList(
+        #                     selectizeInput("Locus", "Locus", selected = "", multiple = TRUE, choices = currentChoices, options=list(create=TRUE)))
+        #             })
+        #         }
+        #         else {
+        #             #query inputs Locus field should a) take new entries and b) re-populate Locus options following entry of new Loci
+        #             currentChoices <<- allloci %>% select(Locus) %>% filter(allloci$LocusType == as.character(input$LocusType))
+        #             output$TrenchSelected <- renderUI({
+        #                 tagList(
+        #                     selectizeInput("Locus", "Locus", choices = currentChoices, multiple = TRUE, selected = "", options=list(create=TRUE)))
+        #             })
+        #         }
+        #     }
+        #     
+        #     if (input$LocusType == "Transect") {
+        #         output$LocusTypeSelected <- renderUI({
+        #             tagList(
+        #                 selectizeInput("selectTrench", "Select a transect", selected = "", multiple = T, choices = c("All",transects))
+        #             )
+        #         })
+        #         req(input$selectTrench)
+        #         if (input$selectTrench != "All"){
+        #             currentChoices_transects <<- chooseTransect(input$selectTrench)
+        #             output$TrenchSelected <- renderUI({
+        #                 tagList(
+        #                     selectizeInput("Locus", "Locus", choices = currentChoices_transects, multiple = TRUE, selected = "", options=list(create=TRUE))  
+        #                 )
+        #             })  
+        #         }
+        #         else {
+        #             currentChoices_transects <<- transectcollectionpoints %>% select(CollectionPointID) %>% filter(transectcollectionpoints$Transect == as.character(input$selectTrench))
+        #             output$TrenchSelected <- renderUI({
+        #                 tagList(
+        #                     selectizeInput("Locus", "Locus", choices = currentChoices_transects, multiple = TRUE, selected = "", options=list(create=TRUE)) #filter transectcollectionpoints for all collection points associated with selected transect(s)
+        #                 )
+        #             })
+        #         }
+        #     }
+        #     
+        #     
+        #     if (input$LocusType == "Grid" | input$LocusType == "Grab" | input$LocusType == "XFind") {
+        #         
+        #         output$LocusTypeSelected <- renderUI({
+        #             tagList(
+        #                 selectInput("selectTrench", "Trench", selected = "TRENCH NA", multiple = FALSE, choices = "TRENCH NA")
+        #             )
+        #         })
+        #         output$TrenchSelected <- renderUI({
+        #             tagList(
+        #                 selectizeInput("Locus", "Locus", choices = allloci %>% select(Locus) %>% filter(allloci$LocusType == as.character(input$LocusType)), multiple = TRUE, selected = "", options=list(create=TRUE))
+        #             )
+        #         })  
+        #     }
+        #     
+        # })
         
         
         #function to be used below to filter for response to query
@@ -594,7 +591,7 @@ shinyApp(
                                       )
                                   ),
                                   hr(),
-                                  DT::dataTableOutput("ShowNewRecords"),
+                                 DT::dataTableOutput("ShowNewRecords"),
                                   footer = modalButton("Dismiss"),
                                   size = "l",
                                   easyClose = TRUE,
@@ -687,9 +684,11 @@ shinyApp(
                     dbExecute(pool, write_level3[m])
                 }
                 
-                output$ShowNewRecords <- renderUI({
-                    DT::renderDataTable(Level3 %>% filter(ArtefactID %in% ARidstring) %>% select(ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination))
-                })
+                Level3 <- dbReadTable(pool, 'level3')
+                NewRecordsTableX <- Level3 %>%
+                    select(ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination) %>%
+                    filter(ArtefactID %in% ARidstring)
+                output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableX))
                 
                 # refresh the interface
                 NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
@@ -859,9 +858,7 @@ shinyApp(
             
             ShowNewRecordsTable <- Level3 %>% select(filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination), ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination)
             
-            output$ShowNewRecords <- renderUI({
-                DT::renderDataTable(ShowNewRecordsTable)
-            })
+            output$ShowNewRecords <- DT::renderDataTable(datatable(ShowNewRecordsTable))
             
             
             
@@ -1088,8 +1085,6 @@ shinyApp(
                 datatable(CurrentResults[0,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
             to_index <<- CurrentResults
         })
-        
-        
         
         #-----/EditRecords-----#
         
