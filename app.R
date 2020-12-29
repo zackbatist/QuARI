@@ -551,8 +551,8 @@ shinyApp(
                                              selectizeInput("NewBlank", "Blank", choices = c("", blanks$Blank), multiple = FALSE, selected = "", options = list(create = TRUE))),
                                       column(width = 2,
                                              selectizeInput("NewModification", "Modification", choices = c("", modifications), multiple = FALSE, selected = "", options = list(create = TRUE))),
-                                      column(width = 1,
-                                             numericInput("NewQuantity", "Quantity", "1"))
+                                      column(width = 2,
+                                             numericInput("NewQuantity", "Quantity", "", min = 0))
                                   ),
                                   fluidRow(
                                       column(width = 2,
@@ -581,13 +581,25 @@ shinyApp(
                                  DT::dataTableOutput("ShowNewRecords"),
                                   footer = modalButton("Dismiss"),
                                   size = "l",
-                                  easyClose = TRUE,
+                                  easyClose = FALSE,
                                   fade = FALSE
             )
             )
         })
         
         observeEvent(input$CreateNewRecord, {
+            output$NewRecordMessages <- renderText(HTML(paste0(validate(
+                need(input$NewQuantity, "Please input a quantity.")))
+            ))
+            req(input$NewQuantity)
+            if (input$NewQuantity == 0) {
+                output$NewRecordMessages <- renderText(HTML(paste0("Please input a quantity.")))
+            }
+            if (input$NewQuantity < 0) {
+                output$NewRecordMessages <- renderText(HTML(paste0("Please input a positive quantity.")))
+            } 
+            if (input$NewQuantity > 0) {
+            
             Level3 <- dbReadTable(pool, 'level3')
             EquivRecordFilter <- data.frame()
             EquivRecordFilter <<- reactive({
@@ -708,7 +720,6 @@ shinyApp(
                 }
                 
                 if (nrow(CurrentResultsUpdated) == 0) {
-                    output$SummaryInfo <- renderPrint("Here I am, brain the size of a planet, and you ask me to count lithics.  Well, I can't find any that match your criteria.")
                     output$SummaryInfo <- renderText({
                         HTML(paste0("No lithics match criteria."))
                     })
@@ -728,7 +739,7 @@ shinyApp(
                 message1RawMaterial <- ifelse(length(NewRecord$RawMaterial),NewRecord$RawMaterial,"NULL")
                 message1Weathering <- ifelse(length(NewRecord$Weathering),NewRecord$Weathering,"NULL")
                 message1Patination <- ifelse(length(NewRecord$Patination),"Yes","NULL")
-                message1Burned <- ifelse(length(NewRecord$Burned),"Yes","NULL")
+                message1Burned <- ifelse(NewRecord$Burned!="","Yes","NULL")
                 message1 <- paste0("Created ",NewRecord$Quantity," records for ",NewRecord$LocusType," ",NewRecord$Locus," (Period: ",message1Period,", Blank: ",message1Blank,", Modification: ",message1Modification,", Raw Material: ",message1RawMaterial,", Weathering: ",message1Weathering,", Patination: ",message1Patination,", Burned: ",message1Burned,")")
                 
                 activitylog <- dbReadTable(pool, 'activitylog')
@@ -772,12 +783,14 @@ shinyApp(
                     actionButton("ConfirmNewRecordButton","Confirm")
                 })
             }
+            }
         })
         
         observeEvent(input$ConfirmNewRecordButton, {
             UpdateExistingLevel2Record <<- glue::glue_sql("UPDATE `level2` SET `Quantity` = {EquivRecordQuantityUpdated} WHERE `Locus` = {EquivRecordFilter_df$Locus} AND `Period` = {EquivRecordFilter_df$Period} AND `Blank` = {EquivRecordFilter_df$Blank} AND `Modification` = {EquivRecordFilter_df$Modification}", .con = pool)
             UpdateExistingLevel2Record <<- as.character(UpdateExistingLevel2Record)
             UpdateExistingLevel2Record
+            UpdateExistingLevel2Record <<- head(UpdateExistingLevel2Record, n=1)
             dbExecute(pool, sqlInterpolate(ANSI(), UpdateExistingLevel2Record))
             
             ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
@@ -885,7 +898,7 @@ shinyApp(
             message2Weathering <- ifelse(EquivRecordFilter_df$Weathering!="",EquivRecordFilter_df$Weathering,"NULL")
             message2Patination <- ifelse(EquivRecordFilter_df$Patination!="","Yes","NULL")
             message2Burned <- ifelse(EquivRecordFilter_df$Burned!="","Yes","NULL")
-            message2 <- paste0("Added ",toAddQuantity_str," lithics to existing batch of ",EquivRecordFilter_df_str," records in ",EquivRecordFilter_df$LocusType," ",EquivRecordFilter_df$Locus," with the following configuration: ","Period: ",message2Period,", Blank: ",message2Blank,", Modification: ",message2Modification,", Raw Material: ",message2RawMaterial,", Weathering: ",message2Weathering,", Patination: ",message2Patination,", Burned: ",message2Burned,". There are now ",EquivRecordQuantityUpdated_str," records matching that configuration in this locus.")
+            message2 <- paste0("Added ",toAddQuantity_str," lithics to existing batch of ",EquivRecordFilter_df_str," records in ",head(EquivRecordFilter_df$LocusType,n=1)," ",head(EquivRecordFilter_df$Locus,n=1)," with the following configuration: ","Period: ",message2Period,", Blank: ",message2Blank,", Modification: ",message2Modification,", Raw Material: ",message2RawMaterial,", Weathering: ",message2Weathering,", Patination: ",message2Patination,", Burned: ",message2Burned,". There are now ",EquivRecordQuantityUpdated_str," records matching that configuration in this locus.")
             
             activitylog <- dbReadTable(pool, 'activitylog')
             activitylog <- data.frame(Log = message2,
@@ -897,7 +910,7 @@ shinyApp(
             activitylog
             
             output$NewRecordMessages <- renderText({
-                HTML((paste0("Added <b>",toAddQuantity_str,"</b> lithics to existing batch of ","<b>",EquivRecordFilter_df_str,"</b> records in <b>",EquivRecordFilter_df$LocusType," ",EquivRecordFilter_df$Locus,"</b> with the following configuration:</br>", "<b>Period:</b> ",message2Period,"</br>","<b>Blank:</b> ",message2Blank,"</br>", "<b> Modifiation:</b> ",message2Modification,"</br>","<b>Raw Material:</b> ",message2RawMaterial,"</br>","<b>Weathering:</b> ",message2Weathering,"</br>","<b>Patination:</b> ",message2Patination,"</br>","<b>Burned:</b> ",message2Burned,"</br>There are now <b>",EquivRecordQuantityUpdated_str,"</b> records matching that configuration in this locus.")))
+                HTML((paste0("Added <b>",toAddQuantity_str,"</b> lithics to existing batch of ","<b>",EquivRecordFilter_df_str,"</b> records in <b>",head(EquivRecordFilter_df$LocusType, n=1)," ",head(EquivRecordFilter_df$Locus,n=1),"</b> with the following configuration:</br>", "<b>Period:</b> ",message2Period,"</br>","<b>Blank:</b> ",message2Blank,"</br>", "<b> Modifiation:</b> ",message2Modification,"</br>","<b>Raw Material:</b> ",message2RawMaterial,"</br>","<b>Weathering:</b> ",message2Weathering,"</br>","<b>Patination:</b> ",message2Patination,"</br>","<b>Burned:</b> ",message2Burned,"</br>There are now <b>",EquivRecordQuantityUpdated_str,"</b> records matching that configuration in this locus.")))
             })
         })
         
@@ -959,7 +972,7 @@ shinyApp(
             }
             
             
-            showModal(modalDialog(title = paste0("Update ghost records with level 3 info"),
+            showModal(modalDialog(title = paste0("Update generic lithics with level 3 info"),
                                   fluidRow(
                                       column(width = 2,
                                              selectInput("ModalRawMaterialSelect","Raw Material", c(Choose = '', 'Type A', 'Type B', 'Type C', 'Type D', 'Type E', 'Type F','Indeterminate','Missing'), selectize = TRUE)),
@@ -982,7 +995,7 @@ shinyApp(
                                   fluidRow(
                                       column(width = 12,
                                              wellPanel(
-                                                 textOutput("BatchErrors")))
+                                                 htmlOutput("BatchErrors")))
                                   ),
                                   footer = (
                                       tagList(
@@ -1048,6 +1061,31 @@ shinyApp(
                         }
                     }
                     
+                    message5ARIDs <- paste0(Level3TruncatedBatch$ArtefactID, collapse = ", ")
+                    message5LocusType <- ifelse(head(Level3ToBatch$LocusType, n=1)!="",head(Level3ToBatch$LocusType, n=1),"NULL")
+                    message5Locus <- ifelse(head(Level3ToBatch$Locus,n=1)!="",head(Level3ToBatch$Locus, n=1),"NULL")
+                    message5Period <- ifelse(head(Level3ToBatch$Period,n=1)!="",head(Level3ToBatch$Period, n=1),"NULL")
+                    message5Blank <- ifelse(head(Level3ToBatch$Blank,n=1)!="",head(Level3ToBatch$Blank, n=1),"NULL")
+                    message5Modification <- ifelse(head(Level3ToBatch$Modification,n=1)!="",head(Level3ToBatch$Modification, n=1),"NULL")
+                    message5RawMaterial <- ifelse(SelectedRawMaterial!="",SelectedRawMaterial,"NULL")
+                    message5Weathering <- ifelse(SelectedWeathering!="",SelectedWeathering,"NULL")
+                    message5Patination <- ifelse(SelectedPatination!="","Yes","NULL")
+                    message5Burned <- ifelse(SelectedBurned!="","Yes","NULL")
+                    message5 <- paste0(SelectedQuantity," lithics from ",message5LocusType," ",message5Locus," (Period: ",message5Period," Blank: ",message5Blank,", Modification: ",message5Modification,") have been assigned additional properties: Raw Material: ",message5RawMaterial,", Weathering: ",message5Weathering,", Patination: ",message5Patination,", Burned: ",message5Burned,". The following ArtefactIDs have been effected by this update: ",message5ARIDs,".")
+                    
+                    activitylog <- dbReadTable(pool, 'activitylog')
+                    activitylog <- data.frame(Log = message5,
+                                              Timestamp = as.character(Sys.time()),
+                                              stringsAsFactors = FALSE)
+                    writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+                    writeActivity
+                    activitylog <<- dbReadTable(pool, 'activitylog')
+                    activitylog
+                    
+                    output$BatchErrors <- renderText({
+                        HTML(paste0("Update applied. <b>",SelectedQuantity,"</b> lithics from <b>",message5LocusType," ",message5Locus,"</b> (<b>Period:</b> ",message5Period,", <b>Blank:</b> ",message5Blank,", <b>Modification:</b> ",message5Modification,") have been assigned additional properties:</br><b>Raw Material:</b> ",message5RawMaterial,"</br><b>Weathering:</b> ",message5Weathering,"</br><b>Patination:</b> ",message5Patination,"</br><b>Burned:</b> ",message5Burned))
+                    })
+                    
                     updateSelectInput(session, "ModalRawMaterialSelect", selected = "")
                     updateSelectInput(session, "ModalWeatheringSelect", selected = "")
                     updateSelectInput(session, "ModalPatinationSelect", selected = "")
@@ -1068,14 +1106,11 @@ shinyApp(
                     output$Level3Table <- DT::renderDataTable(
                         datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
                     
-                    output$BatchErrors <- renderText({
-                        HTML(paste0("Update applied."))
-                    })
                 }
                 
                 if (nrow(Level3ToBatch) == 0) {
                     output$BatchErrors <- renderText({
-                        HTML(paste0("All lithics have already been assigned raw materials / weathering / patination / burned values. To ensure you're modifying the correct records, please edit individual records by closing this modal and navigating to the 'Level 3' tab."))
+                        HTML(paste0("All lithics pertaining to the selected Level 2 records have already been assigned raw material, weathering, patination or burned values. To ensure you're modifying the correct records, please edit individual records by closing this modal and navigating to the 'Level 3' tab."))
                     })
                 }
                 
@@ -1083,7 +1118,7 @@ shinyApp(
                     BatchDifference <<- nrow(Level3ToBatch) - SelectedQuantity
                     BatchDifference_chr <<- as.character(BatchDifference)
                     output$BatchErrors <- renderText({
-                        HTML(paste0("You have selected more artefacts than there are generic lithics available to be updated. Input a value less than or equal to the amount of editable lithics and/or edit individual records by closing this modal and navigating to the 'Level 3' tab."))
+                        HTML(paste0("You have selected more artefacts than there are generic lithics available to be updated. Input a value less than or equal to the amount of editable lithics (<b>",nrow(Level3ToBatch),"</b>), or edit individual records by closing this modal and navigating to the 'Level 3' tab."))
                     })
                 }
             }
@@ -1109,7 +1144,6 @@ shinyApp(
             updateSelectizeInput(session, "Period", selected = "")
             updateSelectizeInput(session, "Blank", selected = "")
             updateSelectizeInput(session, "Modification", selected = "")
-            #updateSelectizeInput(session, "selectTrench", selected = "")
             
             output$SummaryInfo <- renderText({
                 HTML(paste0("")) # clear summary and/or error messages when clearinputs is pressed
