@@ -92,11 +92,11 @@ shinyApp(
                                  column(width = 2,
                                         selectizeInput("Locus", "Locus", choices = NULL)),
                                  column(width = 2,
-                                        selectizeInput("Period", "Period", choices = c("", periods$Period), multiple = TRUE, selected = "")),
+                                        selectizeInput("Period", "Period", choices = c(Choose = "", periods$Period), multiple = TRUE, selected = "")),
                                  column(width = 2,
-                                        selectizeInput("Blank", "Blank", choices = c("", blanks$Blank), multiple = TRUE, selected = "")),
+                                        selectizeInput("Blank", "Blank", choices = c(Choose = "", blanks$Blank), multiple = TRUE, selected = "")),
                                  column(width = 2,
-                                        selectizeInput("Modification", "Modification", choices = c("", modifications), multiple = TRUE, selected = ""))
+                                        selectizeInput("Modification", "Modification", choices = c(Choose = "", modifications), multiple = TRUE, selected = ""))
                              ),
                              fluidRow(
                                  column(width = 8,
@@ -201,13 +201,11 @@ shinyApp(
                 }
             })
             
-            
             observeEvent(input$Unit, {
                 if (input$LocusType == "Context") {
                     LocusChoices <- chooseTrench(input$Unit)
                     updateSelectizeInput(session, "Locus", label = "Context", choices = as.character(unique(sort(LocusChoices))))
                 }
-                
                 if (input$LocusType == "Transect") {
                     LocusChoices <- chooseTransect(input$Unit)
                     updateSelectizeInput(session, "Locus", label = "Transect Collection Point", choices = as.character(unique(sort(LocusChoices))))
@@ -218,6 +216,39 @@ shinyApp(
                 }
                 if (input$LocusType == "Grab") {
                     updateSelectizeInput(session, "Locus", label = "Grab", choices = as.character(unique(sort(grabs$CollectionPointID))), selected = NULL, server = FALSE)
+                }
+            })
+            
+            observeEvent(input$NewLocusType, {
+                if (input$NewLocusType == "Context") {
+                    updateSelectizeInput(session, "NewUnit", label = "Trench", choices = as.character(unique(sort(trenches$Trench))), selected = NULL, server = FALSE)
+                }
+                if (input$NewLocusType == "Transect") {
+                    updateSelectizeInput(session, "NewUnit", label = "Transect", choices = as.character(unique(sort(transectcollectionpoints$Transect))), selected = NULL, server = FALSE)
+                }
+                if (input$NewLocusType == "Grid") {
+                    updateSelectizeInput(session, "NewUnit", label = "Grid", choices = as.character(unique(sort(gridcollectionpoints$Grid))), selected = NULL, server = FALSE)
+                }
+                if (input$NewLocusType == "Grab") {
+                    updateSelectizeInput(session, "NewUnit", label = "", choices = c(""), selected = NULL, server = FALSE)
+                }
+            })
+            
+            observeEvent(input$NewUnit, {
+                if (input$NewLocusType == "Context") {
+                    LocusChoices <- chooseTrench(input$NewUnit)
+                    updateSelectizeInput(session, "NewLocus", label = "Context", choices = as.character(unique(sort(LocusChoices))))
+                }
+                if (input$NewLocusType == "Transect") {
+                    LocusChoices <- chooseTransect(input$NewUnit)
+                    updateSelectizeInput(session, "NewLocus", label = "Transect Collection Point", choices = as.character(unique(sort(LocusChoices))))
+                }
+                if (input$NewLocusType == "Grid") {
+                    LocusChoices <- chooseGrid(input$NewUnit)
+                    updateSelectizeInput(session, "NewLocus", label = "Grid Collection Point", choices = as.character(unique(sort(LocusChoices))))
+                }
+                if (input$NewLocusType == "Grab") {
+                    updateSelectizeInput(session, "NewLocus", label = "Grab", choices = as.character(unique(sort(grabs$CollectionPointID))), selected = NULL, server = FALSE)
                 }
             })
         
@@ -544,15 +575,19 @@ shinyApp(
                                       column(width = 2,
                                              selectInput("NewLocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab"), multiple = FALSE, selected = NULL)),
                                       column(width = 2,
-                                             selectizeInput("NewLocus", "Locus", choices = c("", allloci$Locus), multiple = FALSE, selected = "", options=list(create=TRUE))),
-                                      column(width = 2,
-                                             selectizeInput("NewPeriod", "Period", choices = c("", periods$Period), multiple = FALSE, selected = "")),
-                                      column(width = 2,
-                                             selectizeInput("NewBlank", "Blank", choices = c("", blanks$Blank), multiple = FALSE, selected = "", options = list(create = TRUE))),
-                                      column(width = 2,
-                                             selectizeInput("NewModification", "Modification", choices = c("", modifications), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                                             selectizeInput("NewUnit", "Unit", choices = NULL, multiple = FALSE, selected = "", options=list(create=TRUE))),
+                                      column(width = 3,
+                                             selectizeInput("NewLocus", "Locus", choices = NULL, multiple = FALSE, selected = "", options=list(create=TRUE))),
                                       column(width = 2,
                                              numericInput("NewQuantity", "Quantity", "", min = 0))
+                                  ),
+                                  fluidRow(
+                                      column(width = 2,
+                                             selectizeInput("NewPeriod", "Period", choices = c(Choose = "", periods$Period), multiple = FALSE, selected = "")),
+                                      column(width = 2,
+                                             selectizeInput("NewBlank", "Blank", choices = c(Choose = "", blanks$Blank), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                                      column(width = 2,
+                                             selectizeInput("NewModification", "Modification", choices = c(Choose = "", modifications), multiple = FALSE, selected = "", options = list(create = TRUE)))
                                   ),
                                   fluidRow(
                                       column(width = 2,
