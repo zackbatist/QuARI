@@ -233,7 +233,7 @@ shinyApp(
                     updateSelectizeInput(session, "NewUnit", label = "", choices = c(""), selected = NULL, server = FALSE)
                 }
             })
-            
+
             observeEvent(input$NewUnit, {
                 if (input$NewLocusType == "Context") {
                     LocusChoices <- chooseTrench(input$NewUnit)
@@ -636,11 +636,10 @@ shinyApp(
             if (input$NewQuantity > 0) {
             
             Level3 <- dbReadTable(pool, 'level3')
-            EquivRecordFilter <- data.frame()
-            EquivRecordFilter <<- reactive({
-                select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination & Burned==input$NewBurned), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned)
-            })
-            EquivRecordFilter_df <<- EquivRecordFilter()
+            EquivRecordFilter <<- reactiveValues(EquivRecordFilterX = data.frame(
+                select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination & Burned==input$NewBurned), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned), stringsAsFactors = FALSE)
+            )
+            EquivRecordFilter_df <<- as.data.frame(EquivRecordFilter$EquivRecordFilterX, stringsAsFactors = FALSE)
             
             if (nrow(EquivRecordFilter_df) == 0) {
                 values <- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
@@ -676,7 +675,7 @@ shinyApp(
                 ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
                 toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
                 singleRow_expanded <<- expandRows(toExpand, count = 10, count.is.col = TRUE, drop = TRUE)
-                singleRow_expanded <<- data.frame(lapply(singleRow_expanded, as.character), stringsAsFactors = FALSE)
+                
                 colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
                 colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
                 colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
@@ -709,10 +708,10 @@ shinyApp(
                     ARidseq <- seq(newARid, length.out=ArtefactIDQuantityDifferenceNewRecords, by=1)
                     ARidstring <<- as.character(paste0("AR", str_pad(ARidseq, 6, pad="0"))) 
                     
-                    l<-1
+                    l <- 1
                     for (l in (1:ArtefactIDQuantityDifferenceNewRecords)) {
-                        NewArtefactRecordsFromDifferenceNewRecords[l,] <- cbind(singleRow_expanded, data.frame(ArtefactID = ""), stringsAsFactors = F) #need to add a placeholder column for artefact ID
-                        NewArtefactRecordsFromDifferenceNewRecords[l,]$ArtefactID <- ARidstring[l]
+                        NewArtefactRecordsFromDifferenceNewRecords[l,] <<- cbind(singleRow_expanded[l,], data.frame(ArtefactID = ""), stringsAsFactors = F) #need to add a placeholder column for artefact ID
+                        NewArtefactRecordsFromDifferenceNewRecords[l,]$ArtefactID <<- ARidstring[l]
                     }
                 }
                 
@@ -723,8 +722,8 @@ shinyApp(
                 }
                 
                 Level3 <- dbReadTable(pool, 'level3')
-                NewRecordsTableX <- Level3 %>%
-                    select(ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned) %>%
+                NewRecordsTableX <<- Level3 %>%
+                    select(ArtefactID, LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned) %>%
                     filter(ArtefactID %in% ARidstring)
                 output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableX))
                 
@@ -767,7 +766,7 @@ shinyApp(
                         datatable(CurrentResultsUpdated[,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
                     to_index <<- CurrentResultsUpdated
                 }
-                
+
                 message1Period <- ifelse(length(NewRecord$Period),NewRecord$Period,"NULL")
                 message1Blank <- ifelse(length(NewRecord$Blank),NewRecord$Blank,"NULL")
                 message1Modification <- ifelse(length(NewRecord$Modification),NewRecord$Modification,"NULL")
@@ -832,8 +831,6 @@ shinyApp(
             toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
             singleRow_expanded <<- expandRows(toExpand, count = 10, count.is.col = TRUE, drop = TRUE)
             
-            singleRow_expanded <<- data.frame(lapply(singleRow_expanded, as.character), stringsAsFactors = FALSE)
-            
             colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
             colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
             colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
@@ -868,7 +865,7 @@ shinyApp(
                 
                 l<-1
                 for (l in (1:ArtefactIDQuantityDifferenceNewRecordsExisting)) {
-                    NewArtefactRecordsFromDifferenceNewRecordsExisting[l,] <- cbind(singleRow_expanded, data.frame(ArtefactID = ""), stringsAsFactors = F) #need to add a placeholder column for artefact ID
+                    NewArtefactRecordsFromDifferenceNewRecordsExisting[l,] <- cbind(singleRow_expanded[l,], data.frame(ArtefactID = ""), stringsAsFactors = F) #need to add a placeholder column for artefact ID
                     NewArtefactRecordsFromDifferenceNewRecordsExisting[l,]$ArtefactID <- ARidstring[l]
                     NewArtefactRecordsFromDifferenceNewRecordsExisting_df <<- NewArtefactRecordsFromDifferenceNewRecordsExisting
                 }
