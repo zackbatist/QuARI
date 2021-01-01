@@ -60,7 +60,6 @@ transects <- as.character(sort(as.numeric(unique(transectcollectionpoints$Transe
 gridcollectionpoints <- dbReadTable(pool, 'gridcollectionpoints')
 grids <- as.character(sort(unique(gridcollectionpoints$Grid)))
 grabs <- dbReadTable(pool, 'grabsamples')
-XFinds <- dbReadTable(pool, 'xfinds')
 
 #function to select trench and return associated contexts
 chooseTrench <- function(trench) {
@@ -147,14 +146,12 @@ shinyApp(
                                          tabPanel("Illustrations",
                                                   fluidRow(
                                                       br(),
-                                                      column(width = 2,
+                                                      column(width = 3,
                                                              textInput("newIllustrationFilename", "Filename (incl. extension) of digital copy")),
                                                       column(width = 2,
                                                              textInput("newIllustrationIllustrator", "Illustrator")),
                                                       column(width = 2,
                                                              dateInput("newIllustrationDate", "Date illustrated")),
-                                                      column(width = 2,
-                                                             textInput("newIllustrationYear", "Year illustrated")),
                                                       column(width = 2,
                                                              textInput("newIllustrationNotes", "Notes"))
                                                   ),
@@ -391,11 +388,11 @@ shinyApp(
                         if (Level3IndexValues[1] == 0){
                             Photos <- dbReadTable(pool, 'photos')
                             output$PhotosTable <- DT::renderDataTable(
-                                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row")))
                             
                             Illustrations <- dbReadTable(pool, 'illustrations')
                             output$IllustrationsTable <- DT::renderDataTable(
-                                datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                                datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row")))
                         }
                         else {
                             PhotosSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
@@ -403,14 +400,14 @@ shinyApp(
                             Photos <- dbReadTable(pool, 'photos')
                             PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection)
                             output$PhotosTable <- DT::renderDataTable(
-                                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
                             
                             IllustrationsSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
                             IllustrationsSelection_str <<- as.character(IllustrationsSelection)
                             Illustrations <- dbReadTable(pool, 'illustrations')
                             IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection)
                             output$IllustrationsTable <- DT::renderDataTable(
-                                datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                                datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
                         }
                         
                     }
@@ -426,12 +423,12 @@ shinyApp(
                 Photos <- dbReadTable(pool, 'photos')
                 PhotosFilterResults <- filter(Photos, ArtefactID=="None")
                 output$PhotosTable <- DT::renderDataTable(
-                    datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                    datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row")))
                 
                 Illustrations <- dbReadTable(pool, 'illustrations')
                 IllustrationsFilterResults <- filter(Illustrations, ArtefactID=="None")
                 output$IllustrationsTable <- DT::renderDataTable(
-                    datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                    datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row")))
             }
         })
         
@@ -468,7 +465,7 @@ shinyApp(
             Photos <- dbReadTable(pool, 'photos')
             PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection_str)
             output$PhotosTable <<- DT::renderDataTable(
-                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
             updateTextInput(session, "newPhotoFilename", value = "")
             Level3 <<- dbReadTable(pool, 'level3')
             Level3Photos <<- filter(Photos, ArtefactID==PhotosSelection)$PhotoID
@@ -476,11 +473,34 @@ shinyApp(
             Level3PhotoUpdate <<- glue::glue_sql("UPDATE `level3` SET `Photos` = {Level3Photos_str} WHERE `ArtefactID` = {PhotosSelection}", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate))
             
-            # For some unknown reason, refreshing this table does not include PhotoIDs that do not contain non-number characters. For instance, if I add a photo with filename "1234", this will be added to the database in all its proper places, but this value will not be pulled down or displayed here. Better to use '1234.jpeg' or something of that sort (but not adding the '.jpeg' part automatically since it is not reasonable to assume that this is how files will be formatted (i.e. the distinction between '.jpeg' and '.jpg')).
-            # The Photos column in the Level3 data table is too narrow to show more than one or two PhotoIDs.
+            Level3 <- dbReadTable(pool, 'level3')
             Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
             output$Level3Table <- DT::renderDataTable(
                 datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+            
+            Photos <- dbReadTable(pool, 'photos')
+            output$PhotosTable <- DT::renderDataTable(
+                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row")))
+            
+            message6Filename <- ifelse(NewPhotoFilenameValue!="",NewPhotoFilenameValue,"NULL")
+            message6Photographer <- ifelse(NewPhotoPhotographerValue!="",NewPhotoPhotographerValue,"NULL")
+            message6Photographer <- ifelse(NewPhotoPhotographerValue!="",NewPhotoPhotographerValue,"NULL")
+            message6Camera <- ifelse(NewPhotoCameraValue!="",NewPhotoCameraValue,"NULL")
+            message6Date <- ifelse(NewPhotoDateValue!="",NewPhotoDateValue,"NULL")
+            message6Notes <- ifelse(NewPhotoNotesValue!="",NewPhotoNotesValue,"NULL")
+            message6 <- paste0("Recorded a new photo (",NewPH,") of ",PhotosSelection_str,", which derives from ",LocusTypeForNewPhoto," ",LocusForNewPhoto," (Filename: ",message6Filename,", Photographer: ",message6Photographer,", Camera: ",message6Camera,", Date: ",message6Date,", Notes: ",message6Notes,").")
+            
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message6,
+                                      Timestamp = as.character(Sys.time()),
+                                      stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
+            output$SummaryInfo <- renderText({
+                HTML((paste0("Recorded a new photo (<b>",NewPH,"</b>) of <b>",PhotosSelection_str,"</b>, which derives from <b>",LocusTypeForNewPhoto," ",LocusForNewPhoto,"</b>.</br><b>Filename:</b> ",message6Filename,"</br><b>Photographer:</b> ",message6Photographer,"</br><b>Camera:</b> ",message6Camera,"</br><b>Date:</b> ",message6Date,"</br><b> Notes:</b> ",message6Notes)))
+            })
             
         })
         
@@ -489,13 +509,11 @@ shinyApp(
                 NewIllustrationFilename = input$newIllustrationFilename,
                 NewIllustrationIllustrator = input$newIllustrationIllustrator,
                 NewIllustrationDate = input$newIllustrationDate,
-                NewIllustrationYear = input$newIllustrationYear,
                 NewIllustrationNotes = input$newIllustrationNotes
             )
             NewIllustrationFilenameValue <<- as.character(newIllustrationResponses$NewIllustrationFilename)
             NewIllustrationIllustratorValue <<- as.character(newIllustrationResponses$NewIllustrationIllustrator)
             NewIllustrationDateValue <<- as.character(newIllustrationResponses$NewIllustrationDate)
-            NewIllustrationYearValue <<- as.character(newIllustrationResponses$NewIllustrationYear)
             NewIllustrationNotesValue <<- as.character(newIllustrationResponses$NewIllustrationNotes)
             Illustrations <- dbReadTable(pool, 'illustrations')
             IllustrationNumbers <<- as.character(Illustrations$IllustrationID)
@@ -511,7 +529,7 @@ shinyApp(
             
             LocusForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 2])
             LocusTypeForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 3])
-            newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `Illustrator`, `Date`, `Year`, `Notes`, `ArtefactID`, `IllustrationID`, `Locus`, `LocusType`) VALUES ({NewIllustrationFilenameValue}, {NewIllustrationIllustratorValue}, {NewIllustrationDateValue}, {NewIllustrationYearValue}, {NewIllustrationNotesValue}, {IllustrationsSelection_str}, {NewDR}, {LocusForNewIllustration}, {LocusTypeForNewIllustration})", .con = pool)
+            newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `Illustrator`, `Date`, `Notes`, `ArtefactID`, `IllustrationID`, `Locus`, `LocusType`) VALUES ({NewIllustrationFilenameValue}, {NewIllustrationIllustratorValue}, {NewIllustrationDateValue}, {NewIllustrationNotesValue}, {IllustrationsSelection_str}, {NewDR}, {LocusForNewIllustration}, {LocusTypeForNewIllustration})", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), newIllustrationInsert))
             
             Illustrations <- dbReadTable(pool, 'illustrations')
@@ -525,10 +543,32 @@ shinyApp(
             Level3IllustrationsUpdate <<- glue::glue_sql("UPDATE `level3` SET `Illustrations` = {Level3Illustrations_str} WHERE `ArtefactID` = {IllustrationsSelection}", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationsUpdate))
 
-                        
+            Level3 <- dbReadTable(pool, 'level3')
             Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
             output$Level3Table <- DT::renderDataTable(
                 datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = "cell", disable = list(columns = c(0,1,2,3,4,5)))))
+            
+            Illustrations <- dbReadTable(pool, 'illustrations')
+            output$IllustrationsTable <- DT::renderDataTable(
+                datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row")))
+            
+            message7Filename <- ifelse(NewIllustrationFilenameValue!="",NewIllustrationFilenameValue,"NULL")
+            message7Illustrator <- ifelse(NewIllustrationIllustratorValue!="",NewIllustrationIllustratorValue,"NULL")
+            message7Date <- ifelse(NewIllustrationDateValue!="",NewIllustrationDateValue,"NULL")
+            message7Notes <- ifelse(NewIllustrationNotesValue!="",NewIllustrationNotesValue,"NULL")
+            message7 <- paste0("Recorded a new illustration (",NewDR,") of ",IllustrationsSelection_str,", which derives from ",LocusTypeForNewIllustration," ",LocusForNewIllustration," (Filename: ",message7Filename,", Illustrator: ",message7Illustrator,", Date: ",message7Date,", Notes: ",message7Notes,").")
+            
+            activitylog <- dbReadTable(pool, 'activitylog')
+            activitylog <- data.frame(Log = message7,
+                                      Timestamp = as.character(Sys.time()),
+                                      stringsAsFactors = FALSE)
+            writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+            writeActivity
+            activitylog <<- dbReadTable(pool, 'activitylog')
+            activitylog
+            output$SummaryInfo <- renderText({
+                HTML((paste0("Recorded a new Illustration (<b>",NewDR,"</b>) of <b>",IllustrationsSelection_str,"</b>, which derives from <b>",LocusTypeForNewIllustration," ",LocusForNewIllustration,"</b>.</br><b>Filename:</b> ",message7Filename,"</br><b>Illustrator:</b> ",message7Illustrator,"</br><b>Date:</b> ",message7Date,"</br><b> Notes:</b> ",message7Notes)))
+            })
             
         })
         
