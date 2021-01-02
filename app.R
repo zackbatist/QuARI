@@ -41,14 +41,11 @@ inputs
 }
 
 #read unmodified versions of allloci, blanks and modifications tables from db - specifically for the input selection (these will subsequently be dynamically linked to Level2, so that when new loci/blanks/modifications/periods/contexts/trenches are entered these tables update w/ the new options)
-allloci <- dbReadTable(pool, 'allloci')
-allloci
-blanks <- dbReadTable(pool, 'blanks_excavation')
+blanks <- dbReadTable(pool, 'blanks')
 blanks
-modifications <- dbReadTable(pool, 'modifications_excavation')
+modifications <- dbReadTable(pool, 'modifications')
 modifications <- unique(modifications$Modification)[c(11,1:10,12:26)] #re-order so that 'No modification' is first
-periods <<- dbReadTable(pool, 'dating')
-#periods <<- periods[c(6,1:5),]
+periods <<- dbReadTable(pool, 'periods')
 activitylog <- dbReadTable(pool, 'activitylog')
 activitylog
 contexts <- dbReadTable(pool, 'contexts')
@@ -319,7 +316,7 @@ shinyApp(
             
             if (length(sel)) {
                 Level2IndexValues <- sel
-                Level3Selection <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
+                Level3Selection <<- to_index[Level2IndexValues, c(3,4,5,6,7,3)]
                 Level3 <- dbReadTable(pool, 'level3')
                 
                 Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
@@ -389,14 +386,14 @@ shinyApp(
                             Photos <- dbReadTable(pool, 'photos')
                             PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection)
                             output$PhotosTable <- DT::renderDataTable(
-                                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                                datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
                             
                             IllustrationsSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
                             IllustrationsSelection_str <<- as.character(IllustrationsSelection)
                             Illustrations <- dbReadTable(pool, 'illustrations')
                             IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection)
                             output$IllustrationsTable <- DT::renderDataTable(
-                                datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                                datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
                         }
                         
                     }
@@ -412,12 +409,12 @@ shinyApp(
                 Photos <- dbReadTable(pool, 'photos')
                 PhotosFilterResults <- filter(Photos, ArtefactID=="None")
                 output$PhotosTable <- DT::renderDataTable(
-                    datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row")))
+                    datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
                 
                 Illustrations <- dbReadTable(pool, 'illustrations')
                 IllustrationsFilterResults <- filter(Illustrations, ArtefactID=="None")
                 output$IllustrationsTable <- DT::renderDataTable(
-                    datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row")))
+                    datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
             }
         })
         
@@ -448,13 +445,13 @@ shinyApp(
             
             LocusForNewPhoto <- unlist(Level3FilterResults[Level3IndexValues[1], 2])
             LocusTypeForNewPhoto <- unlist(Level3FilterResults[Level3IndexValues[1], 3])
-            newPhotoInsert <<- glue::glue_sql("INSERT INTO `photos` (`Filename`, `Photographer`, `Camera`, `Date`, `Notes`, `ArtefactID`, `PhotoID`, `Locus`, `LocusType`) VALUES ({NewPhotoFilenameValue}, {NewPhotoPhotographerValue}, {NewPhotoCameraValue}, {NewPhotoDateValue}, {NewPhotoNotesValue}, {PhotosSelection_str}, {NewPH}, {LocusForNewPhoto}, {LocusTypeForNewPhoto})", .con = pool)
+            newPhotoInsert <<- glue::glue_sql("INSERT INTO `photos` (`Filename`, `Photographer`, `Camera`, `Date`, `Notes`, `ArtefactID`, `PhotoID`) VALUES ({NewPhotoFilenameValue}, {NewPhotoPhotographerValue}, {NewPhotoCameraValue}, {NewPhotoDateValue}, {NewPhotoNotesValue}, {PhotosSelection_str}, {NewPH})", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
             
             Photos <- dbReadTable(pool, 'photos')
             PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection_str)
             output$PhotosTable <<- DT::renderDataTable(
-                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
             updateTextInput(session, "newPhotoFilename", value = "")
             Level3 <<- dbReadTable(pool, 'level3')
             Level3Photos <<- filter(Photos, ArtefactID==PhotosSelection)$PhotoID
@@ -469,7 +466,7 @@ shinyApp(
             
             Photos <- dbReadTable(pool, 'photos')
             output$PhotosTable <- DT::renderDataTable(
-                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row")))
+                datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
             
             message6Filename <- ifelse(NewPhotoFilenameValue!="",NewPhotoFilenameValue,"NULL")
             message6Photographer <- ifelse(NewPhotoPhotographerValue!="",NewPhotoPhotographerValue,"NULL")
@@ -477,7 +474,7 @@ shinyApp(
             message6Camera <- ifelse(NewPhotoCameraValue!="",NewPhotoCameraValue,"NULL")
             message6Date <- ifelse(NewPhotoDateValue!="",NewPhotoDateValue,"NULL")
             message6Notes <- ifelse(NewPhotoNotesValue!="",NewPhotoNotesValue,"NULL")
-            message6 <- paste0("Recorded a new photo (",NewPH,") of ",PhotosSelection_str,", which derives from ",LocusTypeForNewPhoto," ",LocusForNewPhoto," (Filename: ",message6Filename,", Photographer: ",message6Photographer,", Camera: ",message6Camera,", Date: ",message6Date,", Notes: ",message6Notes,").")
+            message6 <- paste0("Recorded a new photo (",NewPH,") of ",PhotosSelection_str,". (Filename: ",message6Filename,", Photographer: ",message6Photographer,", Camera: ",message6Camera,", Date: ",message6Date,", Notes: ",message6Notes,").")
             
             activitylog <- dbReadTable(pool, 'activitylog')
             activitylog <- data.frame(Log = message6,
@@ -488,7 +485,7 @@ shinyApp(
             activitylog <<- dbReadTable(pool, 'activitylog')
             activitylog
             output$SummaryInfo <- renderText({
-                HTML((paste0("Recorded a new photo (<b>",NewPH,"</b>) of <b>",PhotosSelection_str,"</b>, which derives from <b>",LocusTypeForNewPhoto," ",LocusForNewPhoto,"</b>.</br><b>Filename:</b> ",message6Filename,"</br><b>Photographer:</b> ",message6Photographer,"</br><b>Camera:</b> ",message6Camera,"</br><b>Date:</b> ",message6Date,"</br><b> Notes:</b> ",message6Notes)))
+                HTML((paste0("Recorded a new photo (<b>",NewPH,"</b>) of <b>",PhotosSelection_str,"</b>.</br><b>Filename:</b> ",message6Filename,"</br><b>Photographer:</b> ",message6Photographer,"</br><b>Camera:</b> ",message6Camera,"</br><b>Date:</b> ",message6Date,"</br><b> Notes:</b> ",message6Notes)))
             })
             
         })
@@ -518,13 +515,13 @@ shinyApp(
             
             LocusForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 2])
             LocusTypeForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 3])
-            newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `Illustrator`, `Date`, `Notes`, `ArtefactID`, `IllustrationID`, `Locus`, `LocusType`) VALUES ({NewIllustrationFilenameValue}, {NewIllustrationIllustratorValue}, {NewIllustrationDateValue}, {NewIllustrationNotesValue}, {IllustrationsSelection_str}, {NewDR}, {LocusForNewIllustration}, {LocusTypeForNewIllustration})", .con = pool)
+            newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `Illustrator`, `Date`, `Notes`, `ArtefactID`, `IllustrationID`) VALUES ({NewIllustrationFilenameValue}, {NewIllustrationIllustratorValue}, {NewIllustrationDateValue}, {NewIllustrationNotesValue}, {IllustrationsSelection_str}, {NewDR})", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), newIllustrationInsert))
             
             Illustrations <- dbReadTable(pool, 'illustrations')
             IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection_str)
             output$IllustrationsTable <<- DT::renderDataTable(
-                datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
             updateTextInput(session, "newIllustrationFilename", value = "")
             Level3 <<- dbReadTable(pool, 'level3')
             Level3Illustrations <<- filter(Illustrations, ArtefactID==IllustrationsSelection)$IllustrationID
@@ -539,13 +536,13 @@ shinyApp(
             
             Illustrations <- dbReadTable(pool, 'illustrations')
             output$IllustrationsTable <- DT::renderDataTable(
-                datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row")))
+                datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
             
             message7Filename <- ifelse(NewIllustrationFilenameValue!="",NewIllustrationFilenameValue,"NULL")
             message7Illustrator <- ifelse(NewIllustrationIllustratorValue!="",NewIllustrationIllustratorValue,"NULL")
             message7Date <- ifelse(NewIllustrationDateValue!="",NewIllustrationDateValue,"NULL")
             message7Notes <- ifelse(NewIllustrationNotesValue!="",NewIllustrationNotesValue,"NULL")
-            message7 <- paste0("Recorded a new illustration (",NewDR,") of ",IllustrationsSelection_str,", which derives from ",LocusTypeForNewIllustration," ",LocusForNewIllustration," (Filename: ",message7Filename,", Illustrator: ",message7Illustrator,", Date: ",message7Date,", Notes: ",message7Notes,").")
+            message7 <- paste0("Recorded a new illustration (",NewDR,") of ",IllustrationsSelection_str,". (Filename: ",message7Filename,", Illustrator: ",message7Illustrator,", Date: ",message7Date,", Notes: ",message7Notes,").")
             
             activitylog <- dbReadTable(pool, 'activitylog')
             activitylog <- data.frame(Log = message7,
@@ -556,7 +553,7 @@ shinyApp(
             activitylog <<- dbReadTable(pool, 'activitylog')
             activitylog
             output$SummaryInfo <- renderText({
-                HTML((paste0("Recorded a new Illustration (<b>",NewDR,"</b>) of <b>",IllustrationsSelection_str,"</b>, which derives from <b>",LocusTypeForNewIllustration," ",LocusForNewIllustration,"</b>.</br><b>Filename:</b> ",message7Filename,"</br><b>Illustrator:</b> ",message7Illustrator,"</br><b>Date:</b> ",message7Date,"</br><b> Notes:</b> ",message7Notes)))
+                HTML((paste0("Recorded a new Illustration (<b>",NewDR,"</b>) of <b>",IllustrationsSelection_str,"</b>.</br><b>Filename:</b> ",message7Filename,"</br><b>Illustrator:</b> ",message7Illustrator,"</br><b>Date:</b> ",message7Date,"</br><b> Notes:</b> ",message7Notes)))
             })
             
         })
