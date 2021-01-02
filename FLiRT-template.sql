@@ -249,6 +249,17 @@ CREATE TABLE `trenches` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+# Insert initial ID values
+# ------------------------------------------------------------
+INSERT INTO `level3` (`ArtefactID`) VALUES ('AR000000');
+UPDATE `level3` SET `id` = 0 WHERE `ArtefactID` = 'AR000000';
+
+INSERT INTO `photos` (`PhotoID`) VALUES ('PH00000');
+UPDATE `photos` SET `id` = 0 WHERE `PhotoID` = 'PH00000';
+
+INSERT INTO `illustrations` (`IllustrationID`) VALUES ('DR0000');
+UPDATE `illustrations` SET `id` = 0 WHERE `IllustrationID` = 'DR0000';
+
 
 
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
