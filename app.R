@@ -1,4 +1,4 @@
-#FLiRT - Version current 01/2021
+#QuARI - Version current 01/2021
 
 #load necessary packages
 library(renv)
@@ -74,7 +74,7 @@ shinyApp(
         )),
         tabsetPanel(id = "OverallTabs", type = "tabs",
                     tabPanel("Find",
-                             titlePanel("SNAP Lithics Processing"
+                             titlePanel("Lithics Processing"
                              ),
                              fluidRow(
                                  column(width = 1,
