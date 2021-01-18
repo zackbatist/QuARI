@@ -1,7 +1,9 @@
 #QuARI - Version current 01/2021
 
 #load necessary packages
-library(renv)
+if (!require('renv')) install.packages('renv'); library('renv')
+renv::restore()
+
 library(shiny)
 library(xtable)
 library(DT)
@@ -178,7 +180,7 @@ shinyApp(
         #filtering units and loci based on prior selection
         observeEvent(input$LocusType, {
             if (input$LocusType == "Context") {
-                updateSelectizeInput(session, "Unit", label = "Trench", choices = as.character(unique(sort(trenches$Trench))), selected = NULL, server = FALSE)
+                updateSelectizeInput(session, "Unit", label = "Trench", choices = as.character(unique(sort(trenches$Trench))[-1]), selected = NULL, server = FALSE)
             }
             if (input$LocusType == "Transect") {
                 updateSelectizeInput(session, "Unit", label = "Transect", choices = as.character(unique(sort(transectcollectionpoints$Transect))), selected = NULL, server = FALSE)
@@ -211,7 +213,7 @@ shinyApp(
         
         observeEvent(input$NewLocusType, {
             if (input$NewLocusType == "Context") {
-                updateSelectizeInput(session, "NewUnit", label = "Trench", choices = as.character(unique(sort(trenches$Trench))), selected = NULL, server = FALSE)
+                updateSelectizeInput(session, "NewUnit", label = "Trench", choices = as.character(unique(sort(trenches$Trench))[-1]), selected = NULL, server = FALSE)
             }
             if (input$NewLocusType == "Transect") {
                 updateSelectizeInput(session, "NewUnit", label = "Transect", choices = as.character(unique(sort(transectcollectionpoints$Transect))), selected = NULL, server = FALSE)
@@ -747,7 +749,7 @@ shinyApp(
                     NewRecordsTableX <<- Level3 %>%
                         select(ArtefactID, LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned) %>%
                         filter(ArtefactID %in% ARidstring)
-                    output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableX))
+                    output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableX, options = list(scrollX = TRUE)))
                     
                     # refresh the interface
                     NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
@@ -902,7 +904,7 @@ shinyApp(
             NewRecordsTableY <- Level3 %>%
                 select(ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned) %>%
                 filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination & Burned %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Burned)
-            output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableY))
+            output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableY, options = list(scrollX = TRUE)))
             
             #refresh the interface
             NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
@@ -969,6 +971,7 @@ shinyApp(
         
         observeEvent(input$ClearNewInputs, {
             updateSelectInput(session, "NewLocusType", selected = "")
+            updateSelectInput(session, "NewUnit", selected = "")
             updateSelectInput(session, "NewLocus", selected = "")
             updateSelectInput(session, "NewPeriod", selected = "")
             updateSelectInput(session, "NewBlank", selected = "")
@@ -1193,6 +1196,7 @@ shinyApp(
         
         observeEvent(input$ClearInputs, {
             updateSelectizeInput(session, "LocusType", selected = "")
+            updateSelectizeInput(session, "Unit", selected = "")
             updateSelectizeInput(session, "Locus", selected = "")
             updateSelectizeInput(session, "Period", selected = "")
             updateSelectizeInput(session, "Blank", selected = "")
