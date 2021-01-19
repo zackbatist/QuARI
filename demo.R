@@ -1372,7 +1372,16 @@ shinyApp(
     # })
     #   
     #   #-----/New blanks and modifications-----#
-     
+    
+
+    output$aboutText <- renderText({
+      HTML(paste0("<p>This is a demo of the <a href=\"https://github.com/zackbatist/QuARI\">Queryable Artifact Record Interface (QuARI)</a>. The database that this demo is interfacing with is modeled on the schema for the Stelida Naxos Archaeological Project (SNAP). It incorporates fictionalized data on lithic assemblages from both survey and excavation contexts.</p>
+                  <p>Lithic material from survey includes collections from <i>transect</i>, <i>grid</i>, and <i>grab samples</i> resulting from three different sampling strategies; the first two are 1m<sup>2</sup> dogleash collections while the latter are isolated finds. Excavations are divided into <i>trenches</i> that are excavated by <i>contexts</i>; lithic material is thus associated with individual contexts.</p>
+                  <p>Lithics are classified by <i>blank</i> and <i>modification</i> and assigned to a chronological <i>period</i> where possible in Level 2 analysis. In Level 3 analysis they are assigned individual <i>ArtifactID</i> #s, and additional information (<i>raw material, weathering, and patination</i>) is recorded.</p>
+                  <p>QuARI enables recording both assemblage and artifact data. In this demo you can add either Level 2 or Level 3 data (i.e., information about groups of artifacts or about individual artifacts), and the database will update accordingly.</p>"))
+    })
+    
+    
   }
 )
 
