@@ -21,8 +21,6 @@ library(glue)
 
 #get log-in info for database
 source("keys.R")
-#system("ssh batistz@soc.mcmaster.ca -L 3306:db:3306 -p 22")
-#system("o4fwaKMES9o9UP")
 
 #define pool handler by pool on global level
 pool <- pool::dbPool(drv = dbDriver("MariaDB"),
@@ -661,11 +659,11 @@ shinyApp(
                                      uiOutput("ConfirmNewRecord")
                               )
                             ),
-                            hr(),
-                            fluidRow(
-                              column(width = 12,
-                                     DT::dataTableOutput("ShowNewRecords"))
-                            ),
+                            # hr(),
+                            # fluidRow(
+                            #   column(width = 12,
+                            #          DT::dataTableOutput("ShowNewRecords"))
+                            # ),
                             footer = modalButton("Dismiss"),
                             size = "l",
                             easyClose = FALSE,
@@ -780,11 +778,11 @@ shinyApp(
             dbExecute(pool, write_level3[m])
           }
           
-          Level3 <- dbReadTable(pool, 'level3')
-          NewRecordsTableX <<- Level3 %>%
-            select(ArtefactID, LocusType, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
-            filter(ArtefactID %in% ARidstring)
-          output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableX, options = list(scrollX = TRUE)))
+          # Level3 <- dbReadTable(pool, 'level3')
+          # NewRecordsTableX <<- Level3 %>%
+          #   select(ArtefactID, LocusType, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
+          #   filter(ArtefactID %in% ARidstring)
+          # output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableX, options = list(scrollX = TRUE)))
           
           # refresh the interface
           NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
@@ -945,11 +943,11 @@ shinyApp(
         dbExecute(pool, write_level3_existing[n])
       }
       
-      Level3 <- dbReadTable(pool, 'level3')
-      NewRecordsTableY <- Level3 %>%
-        select(ArtefactID, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
-        filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Cortex %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Cortex & Technique %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Technique & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination & Burned %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Burned)
-      output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableY, options = list(scrollX = TRUE)))
+      # Level3 <- dbReadTable(pool, 'level3')
+      # NewRecordsTableY <- Level3 %>%
+      #   select(ArtefactID, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
+      #   filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Cortex %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Cortex & Technique %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Technique & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination & Burned %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Burned)
+      # output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableY, options = list(scrollX = TRUE)))
       
       #refresh the interface
       NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
@@ -1280,154 +1278,15 @@ shinyApp(
     output$ActivityLogDisplay <- renderDataTable(datatable(activitylog[,-1], rownames = FALSE, selection=list(mode="single", target="row"), options=list(order=list(list(1, 'desc')), pageLength=20)))
     
     #-----/ActivityLog-----#
-   
-    #-----New blanks and modifications-----#
-    # render ui for adding new blanks and modifications
-    # output$newBlankMod <- renderUI({
-    #   div(
-    #     if (input$toggleNewBlankMod %% 2 == 1) {
-    #       span(
-    #         hr(),
-    #         fluidRow(
-    #           column(width = 3,
-    #                  textInput(inputId = "newBlank", label = "New Blank")),
-    #           column(width = 3,
-    #                  textInput(inputId = "newModification", label = "New Modification")),
-    #           column(width = 3,
-    #                  selectInput("newBlankModPeriod", "Period", choices = c(Choose = "", periods$Period), multiple = FALSE, selected = ""))
-    #         ),
-    #         fluidRow(
-    #           column(width = 3,
-    #                  actionButton("submitBlank", "Submit Blank")),
-    #           column(width = 3,
-    #                  actionButton("submitModification", "Submit Modification"))
-    #         ),
-    #         fluidRow(
-    #           br()
-    #         )
-    #       )
-    #     } else {
-    #       span()
-    #     }
-    #   )
-    # })
-    # 
-    # observeEvent(input$submitBlank, {
-    #   #collect reactive values pertaining to the entered values and coerce the data types
-    #   newBlankResponses <- reactiveValues(
-    #     Blank = input$newBlank, Period = input$newBlankModPeriod)
-    #   newBlankValue <<- as.character(newBlankResponses$Blank)
-    #   newBlankPeriodValue <<- as.character(newBlankResponses$Period) #would be coerced as a list for new looping method described below
-    #   
-    #   #collect and subset the list of existing blanks and limit action based on whether the blank already exists
-    #   filteredBlanks <<- data.frame(
-    #     select(filter(blanks, Period == newBlankPeriodValue), Blank))
-    #   if (any(filteredBlanks$Blank == newBlankValue) == FALSE) {
-    #     #generate and execute SQL INSERT statement
-    #     newBlankInsert <- glue::glue_sql("INSERT INTO `blanks` (`Blank`, `Period`) VALUES ({newBlankValue}, {newBlankPeriodValue})"
-    #                                      , .con = pool)
-    #     dbExecute(pool, sqlInterpolate(ANSI(), newBlankInsert))
-    #     messageNewBlank <- paste0(newBlankValue, " added as Blank for ", newBlankPeriodValue, " Period.")
-    #     activitylog <- dbReadTable(pool, 'activitylog')
-    #     activitylog <- data.frame(Log = messageNewBlank,
-    #                               Timestamp = as.character(Sys.time()),
-    #                               stringsAsFactors = FALSE)
-    #     writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-    #     writeActivity
-    #     activitylog <<- dbReadTable(pool, 'activitylog')
-    #     activitylog
-    #     
-    #     output$SummaryInfo <- renderText({
-    #       HTML(paste0("<b>",newBlankValue,"</b> added as Blank for <b>",newBlankPeriodValue,"</b> Period."))
-    #     })
-    #     
-    #     updateTextInput(session, "newModification", value = "")
-    #     
-    #   }
-    #   else {
-    #     output$SummaryInfo <- renderText({
-    #       HTML(paste0("<b>",newBlankValue,"</b> already exists for <b>",newBlankPeriodValue,"</b> Period."))
-    #     })
-    #   }
-    #   
-    #   blanks <<- dbReadTable(pool, 'blanks')
-    #   updateSelectizeInput(session, "Blank", choices=c(Choose = "", unique(blanks$Blank)))
-    #   
-    #   #could potentially be used to loop through items in a list of periods, applying the same newBlankValue for each one, but some work is still needed to get this to work
-    #   #  var1 <- newBlankValue
-    #   #  var2 <- newBlankPeriodValue
-    #   #  for(i in 1:length(var2)){
-    #   #    req <- paste("INSERT INTO `blanks_excavation` (`Blank`, `Period`) VALUES   
-    #   #                 (",var1[i],",",var2[i],")",sep="")
-    #   
-    # })
-    # 
-    # 
-    # observeEvent(input$submitModification, {
-    #   #collect reactive values pertaining to the entered values and coerce the data types
-    #   newModificationResponses <- reactiveValues(
-    #     Modification = input$newModification, Period = input$newBlankModPeriod)
-    #   newModificationValue <<- as.character(newModificationResponses$Modification)
-    #   newModificationPeriodValue <<- as.character(newModificationResponses$Period) #would be coerced as a list for new looping method described below
-    #   
-    #   #collect and subset the list of existing blanks and limit action based on whether the blank already exists
-    #   filteredModifications <<- data.frame(
-    #     select(filter(modifications, Period == newModificationPeriodValue), Modification))
-    #   if (any(filteredModifications$Modification == newModificationValue) == FALSE) {
-    #     #generate and execute SQL INSERT statement
-    #     newModificationInsert <- glue::glue_sql("INSERT INTO `modifications` (`Modification`, `Period`) VALUES ({newModificationValue}, {newModificationPeriodValue})"
-    #                                      , .con = pool)
-    #     dbExecute(pool, sqlInterpolate(ANSI(), newModificationInsert))
-    #     modifications <<- dbReadTable(pool, 'modifications')
-    #     maxModifications <<- nrow(modifications)
-    #     modificationsList <<- unique(modifications$Modification)[c(11,1:10,12:maxModifications)] #re-order so that 'No modification' is first
-    #     
-    #     messageNewModification <- paste0(newModificationValue, " added as Modification for ", newModificationPeriodValue, " Period.")
-    #     activitylog <- dbReadTable(pool, 'activitylog')
-    #     activitylog <- data.frame(Log = messageNewModification,
-    #                               Timestamp = as.character(Sys.time()),
-    #                               stringsAsFactors = FALSE)
-    #     writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
-    #     writeActivity
-    #     activitylog <<- dbReadTable(pool, 'activitylog')
-    #     activitylog
-    #     
-    #     
-    #     updateSelectizeInput(session, "Modification", choices = c(Choose = "", as.character(modificationsList)))
-    #     
-    #     output$SummaryInfo <- renderText({
-    #       HTML(paste0("<b>",newModificationValue,"</b> added as Modification for <b>",newModificationPeriodValue,"</b> Period."))
-    #     })
-    #     
-    #     updateTextInput(session, "newModification", value = "")
-    #     
-    #     
-    #     
-    #   }
-    #   else {
-    #     output$SummaryInfo <- renderText({
-    #       HTML(paste0("<b>",newModificationValue,"</b> already exists for <b>",newModificationPeriodValue,"</b> Period."))
-    #     })
-    #   }
-    #   
-    #   #could potentially be used to loop through items in a list of periods, applying the same newBlankValue for each one, but some work is still needed to get this to work
-    #   #  var1 <- newBlankValue
-    #   #  var2 <- newBlankPeriodValue
-    #   #  for(i in 1:length(var2)){
-    #   #    req <- paste("INSERT INTO `blanks_excavation` (`Blank`, `Period`) VALUES   
-    #   #                 (",var1[i],",",var2[i],")",sep="")
-    #   
-    # })
-    #   
-    #   #-----/New blanks and modifications-----#
     
-
+    #-----AboutTab-----#
     output$aboutText <- renderText({
       HTML(paste0("<p>This is a demo of the <a href=\"https://github.com/zackbatist/QuARI\">Queryable Artifact Record Interface (QuARI)</a>. The database that this demo is interfacing with is modeled on the schema for the Stelida Naxos Archaeological Project (SNAP). It incorporates fictionalized data on lithic assemblages from both survey and excavation contexts.</p>
                   <p>Lithic material from survey includes collections from <i>transect</i>, <i>grid</i>, and <i>grab samples</i> resulting from three different sampling strategies; the first two are 1m<sup>2</sup> dogleash collections while the latter are isolated finds. Excavations are divided into <i>trenches</i> that are excavated by <i>contexts</i>; lithic material is thus associated with individual contexts.</p>
                   <p>Lithics are classified by <i>blank</i> and <i>modification</i> and assigned to a chronological <i>period</i> where possible in Level 2 analysis. In Level 3 analysis they are assigned individual <i>ArtifactID</i> #s, and additional information (<i>raw material, weathering, and patination</i>) is recorded.</p>
                   <p>QuARI enables recording both assemblage and artifact data. In this demo you can add either Level 2 or Level 3 data (i.e., information about groups of artifacts or about individual artifacts), and the database will update accordingly.</p>"))
     })
+    #-----/AboutTab-----#
     
     
   }
