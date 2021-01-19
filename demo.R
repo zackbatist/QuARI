@@ -182,11 +182,11 @@ shinyApp(
   
   server <- function(input, output, session){
     Level2 <- dbReadTable(pool, 'level2')
-    output$NewLevel2Table <- DT::renderDataTable(
+    output$Level2Table <- DT::renderDataTable(
       datatable(Level2[,-1], rownames = FALSE))
     
     Level3 <- dbReadTable(pool, 'level3')
-    output$NewLevel3Table <- DT::renderDataTable(
+    output$Level3Table <- DT::renderDataTable(
       datatable(Level3[,-1], rownames = FALSE))
     
     #filtering units and loci based on prior selection
@@ -259,19 +259,19 @@ shinyApp(
     #function to be used below to filter the datatable for response to query
     QueryResults <- function(QueryInputs) {
       Level2 <- dbReadTable(pool, 'level2')
-      filtered <- Level2
+      filtered <<- Level2
       ifelse(QueryInputs$Locus != "", 
-             filtered <- filtered %>% filter(Locus %in% QueryInputs$Locus), filtered)
+             filtered <<- filtered %>% filter(Locus %in% QueryInputs$Locus), filtered)
       ifelse(QueryInputs$Blank != "",
-             filtered <- filtered %>% filter(Blank %in% QueryInputs$Blank), filtered)
+             filtered <<- filtered %>% filter(Blank %in% QueryInputs$Blank), filtered)
       ifelse(QueryInputs$Cortex != "",
-             filtered <- filtered %>% filter(Cortex %in% QueryInputs$Cortex), filtered)
+             filtered <<- filtered %>% filter(Cortex %in% QueryInputs$Cortex), filtered)
       ifelse(QueryInputs$Technique != "",
-             filtered <- filtered %>% filter(Technique %in% QueryInputs$Technique), filtered)
+             filtered <<- filtered %>% filter(Technique %in% QueryInputs$Technique), filtered)
       ifelse(QueryInputs$Modification != "",
-             filtered <- filtered %>% filter(Modification %in% QueryInputs$Modification), filtered)
+             filtered <<- filtered %>% filter(Modification %in% QueryInputs$Modification), filtered)
       ifelse(QueryInputs$Period != "", 
-             filtered <- filtered %>% filter(Period %in% QueryInputs$Period), filtered)
+             filtered <<- filtered %>% filter(Period %in% QueryInputs$Period), filtered)
       filtered
     }
     
@@ -336,7 +336,7 @@ shinyApp(
       
       if (length(sel)) {
         Level2IndexValues <- sel
-        Level3Selection <<- to_index[Level2IndexValues, c(3,4,5,6,7,3)]
+        Level3Selection <<- to_index[Level2IndexValues, c(3,4,5,6,7,8)]
         Level3 <- dbReadTable(pool, 'level3')
         
         Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
@@ -375,6 +375,9 @@ shinyApp(
             datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
         }
         else {
+          Level3 <- dbReadTable(pool, 'level3')
+          Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
+          
           output$Level3Table <- DT::renderDataTable(
             datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
         }
@@ -581,7 +584,7 @@ shinyApp(
     observeEvent(input$Level3Table_cell_edit, { # For some unknown reason input$Level3Table_cell_edit does not update after an initial update. So when I update a cell from A to B and then from B to C, it only recognizes an update from A to C as if the first update never occurred. Might be related to https://github.com/rstudio/DT/issues/645.
       CellsToEdit <<- input$Level3Table_cell_edit
       if (length(CellsToEdit)) {
-        ARtoEdit <<- Level3FilterResults[CellsToEdit$row, 7]
+        ARtoEdit <<- Level3FilterResults[CellsToEdit$row, 9]
         ColtoEdit <<- colnames(Level3FilterResults)[CellsToEdit$col+2]
         ValueToUpdate <<- Level3[Level3$ArtefactID == ARtoEdit, ColtoEdit]
         ValueToUpdate <<- ValueToUpdate[1] # For some unknown reason ValueToUpdate comprises 7 values, so this is necessary to truncate the list.
@@ -797,34 +800,11 @@ shinyApp(
           NewTermBurned <- if(!is.null(input$NewBurned)) {input$NewBurned} else {""}
           NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Cortex = NewTermCortex, Technique = NewTermTechnique, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination, Burned = NewTermBurned)
           
-          CurrentResults <<- QueryResults(NewInputs)
-          Level2 <- dbReadTable(pool, 'level2')
-          EmptyDT <- filter(CurrentResults, Locus=="blah")
-          
-          CurrentResultsUpdated <<- QueryResults(NewInputs)
-          Level2 <- dbReadTable(pool, 'level2')
-          EmptyDT <- filter(CurrentResultsUpdated, Locus=="blah")
-          
-          if (nrow(CurrentResultsUpdated) == nrow(Level2)) {
-            output$Level2Table <- renderDataTable(datatable(EmptyDT))
-            output$SummaryInfo <- renderText({
-              HTML(paste0("Identical to the complete set of Level2 records"))
-            })
-          }
-          
-          if (nrow(CurrentResultsUpdated) == 0) {
-            output$SummaryInfo <- renderText({
-              HTML(paste0("No lithics match criteria."))
-            })
-            output$Level2Table <- renderDataTable(datatable(CurrentResultsUpdated))
-          }
-          
-          if (nrow(CurrentResultsUpdated) > 0 & nrow(CurrentResultsUpdated) != nrow(Level2)) {
-            SelectedRowEdit <<- input$Level2Table_rows_selected
-            output$Level2Table <- DT::renderDataTable(
-              datatable(CurrentResultsUpdated[,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
-            to_index <<- CurrentResultsUpdated
-          }
+          CurrentResults <<- QueryResults(QueryInputs)
+          SelectedRowEdit <<- input$Level2Table_rows_selected
+          output$Level2Table <- DT::renderDataTable(
+            datatable(CurrentResults[,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(6), width='50'), list(targets=c(2,3,4,5), width='100')))))
+          to_index <<- CurrentResults
           
           message1Period <- ifelse(length(NewRecord$Period),NewRecord$Period,"NULL")
           message1Blank <- ifelse(length(NewRecord$Blank),NewRecord$Blank,"NULL")
@@ -971,7 +951,7 @@ shinyApp(
       EmptyDT <- filter(CurrentResultsUpdated, Locus=="blah")
       
       if (nrow(CurrentResultsUpdated) == nrow(Level2)) {
-        output$Level2Table <- renderDataTable(datatable(EmptyDT))
+        output$able <- renderDataTable(datatable(EmptyDT))
         output$SummaryInfo <- renderText({
           HTML(paste0("Identical to the complete set of Level2 records."))
         })
@@ -981,12 +961,12 @@ shinyApp(
         output$SummaryInfo <- renderText({
           HTML(paste0("No lithics match criteria."))
         })
-        output$Level2Table <- renderDataTable(datatable(CurrentResultsUpdated))
+        output$able <- renderDataTable(datatable(CurrentResultsUpdated))
       }
       
       if (nrow(CurrentResultsUpdated) > 0 & nrow(CurrentResultsUpdated) != nrow(Level2)) {
-        SelectedRowEdit <<- input$Level2Table_rows_selected
-        output$Level2Table <- DT::renderDataTable(
+        SelectedRowEdit <<- input$able_rows_selected
+        output$able <- DT::renderDataTable(
           datatable(CurrentResultsUpdated[,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
         to_index <<- CurrentResultsUpdated
       }
@@ -1265,7 +1245,7 @@ shinyApp(
         HTML(paste0(""))
       })
       
-      output$Level2Table <- DT::renderDataTable(
+      output$able <- DT::renderDataTable(
         datatable(CurrentResults[0,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
       to_index <<- CurrentResults
     })
