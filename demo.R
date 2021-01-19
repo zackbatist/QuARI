@@ -45,6 +45,10 @@ inputs
 #read unmodified versions of allloci, blanks and modifications tables from db - specifically for the input selection (these will subsequently be dynamically linked to Level2, so that when new loci/blanks/modifications/periods/contexts/trenches are entered these tables update w/ the new options)
 blanks <<- dbReadTable(pool, 'blanks')
 blanks
+cortex <<- dbReadTable(pool, 'cortex')
+cortex
+techniques <<- dbReadTable(pool, 'techniques')
+techniques
 modifications <<- dbReadTable(pool, 'modifications')
 modifications
 modificationsList <<- unique(modifications$Modification)[c(11,1:10,12:nrow(modifications))] #re-order so that 'No modification' is first
@@ -91,9 +95,9 @@ shinyApp(
                            column(width = 2,
                                   selectizeInput("Blank", "Blank", choices = c(Choose = "", blanks$Blank), multiple = TRUE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("Cortex", "Cortex", choices = c(Choose = "", "1","2","3"), multiple = TRUE, selected = "")),
+                                  selectizeInput("Cortex", "Cortex", choices = c(Choose = "", cortex$Cortex), multiple = TRUE, selected = "")),
                            column(width = 2,
-                                  selectizeInput("Technique", "Technique", choices = c(Choose = "", "Levallois", "Pseudo-Levallois", "Percussion", "Dejete"), multiple = TRUE, selected = "")),
+                                  selectizeInput("Technique", "Technique", choices = c(Choose = "", techniques$Technique), multiple = TRUE, selected = "")),
                            column(width = 2,
                                   selectizeInput("Modification", "Modification", choices = c(Choose = "", modificationsList), multiple = TRUE, selected = ""))
                          ),
@@ -631,9 +635,9 @@ shinyApp(
                               column(width = 2,
                                      selectizeInput("NewBlank", "Blank", choices = c(Choose = "", blanks$Blank), multiple = FALSE, selected = "", options = list(create = TRUE))),
                               column(width = 2,
-                                     selectizeInput("NewCortex", "Cortex", choices = c(Choose = "", "1","2","3"), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                                     selectizeInput("NewCortex", "Cortex", choices = c(Choose = "", cortex$Cortex), multiple = FALSE, selected = "", options = list(create = TRUE))),
                               column(width = 2,
-                                     selectizeInput("NewTechnique", "Technique", choices = c(Choose = "", "Levallois", "Pseudo-Levallois", "Percussion", "Dejete"), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                                     selectizeInput("NewTechnique", "Technique", choices = c(Choose = "", techniques$Technique), multiple = FALSE, selected = "", options = list(create = TRUE))),
                               column(width = 2,
                                      selectizeInput("NewModification", "Modification", choices = c(Choose = "", modificationsList), multiple = FALSE, selected = "", options = list(create = TRUE)))
                             ),
@@ -962,7 +966,7 @@ shinyApp(
       }
       
       if (nrow(CurrentResultsUpdated) > 0 & nrow(CurrentResultsUpdated) != nrow(Level2)) {
-        SelectedRowEdit <<- input$able_rows_selected
+        SelectedRowEdit <<- input$Level2Table_rows_selected
         output$able <- DT::renderDataTable(
           datatable(CurrentResultsUpdated[,-1], escape = FALSE, rownames = FALSE, selection = list(mode = "multiple", target = "row"), editable = TRUE, options = list(autowidth = TRUE, searching = FALSE, columnDefs = list(list(targets=c(0,1,6,8), width='50'), list(targets=c(2,3,4,5), width='100')))))
         to_index <<- CurrentResultsUpdated
