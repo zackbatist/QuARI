@@ -93,6 +93,10 @@ shinyApp(
                            column(width = 2,
                                   selectizeInput("Blank", "Blank", choices = c(Choose = "", blanks$Blank), multiple = TRUE, selected = "")),
                            column(width = 2,
+                                  selectizeInput("Cortex", "Cortex", choices = c(Choose = "", "1","2","3"), multiple = TRUE, selected = "")),
+                           column(width = 2,
+                                  selectizeInput("Technique", "Technique", choices = c(Choose = "", "Levallois", "Pseudo-Levallois", "Percussion", "Dejete"), multiple = TRUE, selected = "")),
+                           column(width = 2,
                                   selectizeInput("Modification", "Modification", choices = c(Choose = "", modificationsList), multiple = TRUE, selected = ""))
                          ),
                          fluidRow(
@@ -262,6 +266,10 @@ shinyApp(
              filtered <- filtered %>% filter(Locus %in% QueryInputs$Locus), filtered)
       ifelse(QueryInputs$Blank != "",
              filtered <- filtered %>% filter(Blank %in% QueryInputs$Blank), filtered)
+      ifelse(QueryInputs$Cortex != "",
+             filtered <- filtered %>% filter(Cortex %in% QueryInputs$Cortex), filtered)
+      ifelse(QueryInputs$Technique != "",
+             filtered <- filtered %>% filter(Technique %in% QueryInputs$Technique), filtered)
       ifelse(QueryInputs$Modification != "",
              filtered <- filtered %>% filter(Modification %in% QueryInputs$Modification), filtered)
       ifelse(QueryInputs$Period != "", 
@@ -274,8 +282,10 @@ shinyApp(
       QueryTermLocus <- if(!is.null(input$Locus)) {input$Locus} else {""}
       QueryTermPeriod <- if(!is.null(input$Period)) {input$Period} else {""}
       QueryTermBlank <- if(!is.null(input$Blank)) {input$Blank} else {""}
+      QueryTermCortex <- if(!is.null(input$Cortex)) {input$Cortex} else {""}
+      QueryTermTechnique <- if(!is.null(input$Technique)) {input$Technique} else {""}
       QueryTermModification <- if(!is.null(input$Modification)) {input$Modification} else {""}
-      QueryInputs <<- list(Locus = QueryTermLocus, Blank = QueryTermBlank, Modification = QueryTermModification, Period = QueryTermPeriod)
+      QueryInputs <<- list(Locus = QueryTermLocus, Blank = QueryTermBlank, Cortex = QueryTermCortex, Technique = QueryTermTechnique, Modification = QueryTermModification, Period = QueryTermPeriod)
       CurrentResults <<- QueryResults(QueryInputs)
       Level2 <- dbReadTable(pool, 'level2')
       EmptyDT <- filter(CurrentResults, Locus=="blah")
@@ -331,15 +341,15 @@ shinyApp(
         Level3Selection <<- to_index[Level2IndexValues, c(3,4,5,6,7,3)]
         Level3 <- dbReadTable(pool, 'level3')
         
-        Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+        Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
         output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
         
         if (nrow(Level3FilterResults) < sum(Level3Selection$Quantity)) {
           j <- 1
           for (j in (1:nrow(Level3Selection))) {
-            ArtefactIDQuantityDifference <<- Level3Selection$Quantity[j] - nrow(Level3FilterResults[Level3FilterResults$Locus == Level3Selection$Locus[j] & Level3FilterResults$Blank == Level3Selection$Blank[j] & Level3FilterResults$Modification == Level3Selection$Modification[j] & Level3FilterResults$Period == Level3Selection$Period[j],])
-            NewArtefactRecordsFromDifference <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Modification = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE) 
+            ArtefactIDQuantityDifference <<- Level3Selection$Quantity[j] - nrow(Level3FilterResults[Level3FilterResults$Locus == Level3Selection$Locus[j] & Level3FilterResults$Blank == Level3Selection$Blank[j] & Level3FilterResults$Cortex == Level3Selection$Cortex[j] & Level3FilterResults$Technique == Level3Selection$Technique[j] & Level3FilterResults$Modification == Level3Selection$Modification[j] & Level3FilterResults$Period == Level3Selection$Period[j],])
+            NewArtefactRecordsFromDifference <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Cortex = as.character(), Technique = as.character(), Modification = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE) 
             getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
             latestARid <- as.character(dbGetQuery(pool, getnewARid))
             latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
@@ -349,26 +359,26 @@ shinyApp(
             
             l<-1
             for (l in (1:ArtefactIDQuantityDifference)) {
-              NewArtefactRecordsFromDifference[l,] <- cbind(Level3Selection %>% filter(Locus %in% Level3Selection$Locus[j] & Blank %in% Level3Selection$Blank[j] & Modification %in% Level3Selection$Modification[j] & Period %in% Level3Selection$Period[j]) %>% select(LocusType, Locus, Period, Blank, Modification), data.frame(ArtefactID = ""), stringsAsFactors = F)
+              NewArtefactRecordsFromDifference[l,] <- cbind(Level3Selection %>% filter(Locus %in% Level3Selection$Locus[j] & Blank %in% Level3Selection$Blank[j] & Cortex %in% Level3Selection$Cortex[j] & Technique %in% Level3Selection$Technique[j] & Modification %in% Level3Selection$Modification[j] & Period %in% Level3Selection$Period[j]) %>% select(LocusType, Locus, Period, Blank, Cortex, Technique, Modification), data.frame(ArtefactID = ""), stringsAsFactors = F)
               NewArtefactRecordsFromDifference[l,]$ArtefactID <- ARidstring[l]
             }
           }
           
-          write_level3FromDifference <<- glue::glue_sql("INSERT INTO `level3` (`ArtefactID`,`LocusType`, `Locus`, `Period`, `Blank`, `Modification`) VALUES ({NewArtefactRecordsFromDifference$ArtefactID},{NewArtefactRecordsFromDifference$LocusType}, {NewArtefactRecordsFromDifference$Locus}, {NewArtefactRecordsFromDifference$Period}, {NewArtefactRecordsFromDifference$Blank}, {NewArtefactRecordsFromDifference$Modification})", .con = pool)
+          write_level3FromDifference <<- glue::glue_sql("INSERT INTO `level3` (`ArtefactID`,`LocusType`, `Locus`, `Period`, `Blank`, `Cortex`, `Technique`, `Modification`) VALUES ({NewArtefactRecordsFromDifference$ArtefactID},{NewArtefactRecordsFromDifference$LocusType}, {NewArtefactRecordsFromDifference$Locus}, {NewArtefactRecordsFromDifference$Period}, {NewArtefactRecordsFromDifference$Blank}, {NewArtefactRecordsFromDifference$Cortex}, {NewArtefactRecordsFromDifference$Technique}, {NewArtefactRecordsFromDifference$Modification})", .con = pool)
           k <- 1
           for (k in (1:length(write_level3FromDifference))) {
             dbExecute(pool, sqlInterpolate(ANSI(), write_level3FromDifference[k]))
           }
           
           Level3 <- dbReadTable(pool, 'level3')
-          Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+          Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
           
           output$Level3Table <- DT::renderDataTable(
-            datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+            datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
         }
         else {
           output$Level3Table <- DT::renderDataTable(
-            datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+            datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
         }
         
         #if the 'Photo' or 'Illustration' cell is selected in the Level 3 table, that generates a query about any associated photos or illustrations. That query returns a table of existing photos/illustrations, into which new photos/illustrations can be entered if necessary. If new ones are entered, check db to generate next photo/illustration ID and assign that to the one(s) entered.        
@@ -377,7 +387,7 @@ shinyApp(
           SelectedCells <- input$Level3Table_cells_selected   #col 7 comes from selection of illustration, 8 from photo
           if (length(SelectedCells)) {
             Level3 <- dbReadTable(pool, 'level3')
-            Level3IndexValues <<- ifelse(SelectedCells[1,2] %in% c(7,8), SelectedCells, c(0,0))
+            Level3IndexValues <<- ifelse(SelectedCells[1,2] %in% c(9,10), SelectedCells, c(0,0))
             Photos <- dbReadTable(pool, 'photos')
             Illustrations <- dbReadTable(pool, 'illustrations')
             PhotosFilterResults <<- filter(Photos, ArtefactID=="None")
@@ -393,14 +403,14 @@ shinyApp(
                 datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row")))
             }
             else {
-              PhotosSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
+              PhotosSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 9])
               PhotosSelection_str <<- as.character(PhotosSelection)
               Photos <- dbReadTable(pool, 'photos')
               PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection)
               output$PhotosTable <- DT::renderDataTable(
                 datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
               
-              IllustrationsSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 7])
+              IllustrationsSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 9])
               IllustrationsSelection_str <<- as.character(IllustrationsSelection)
               Illustrations <- dbReadTable(pool, 'illustrations')
               IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection)
@@ -416,7 +426,7 @@ shinyApp(
         Level3 <- dbReadTable(pool, 'level3')
         Level3FilterResults <- filter(Level3, Blank=="None")
         output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
         
         Photos <- dbReadTable(pool, 'photos')
         PhotosFilterResults <- filter(Photos, ArtefactID=="None")
@@ -472,9 +482,9 @@ shinyApp(
       dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate))
       
       Level3 <- dbReadTable(pool, 'level3')
-      Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+      Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
       output$Level3Table <- DT::renderDataTable(
-        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
       
       Photos <- dbReadTable(pool, 'photos')
       output$PhotosTable <- DT::renderDataTable(
@@ -542,9 +552,9 @@ shinyApp(
       dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationsUpdate))
       
       Level3 <- dbReadTable(pool, 'level3')
-      Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+      Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
       output$Level3Table <- DT::renderDataTable(
-        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = "cell", disable = list(columns = c(0,1,2,3,4,5)))))
+        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = "cell", disable = list(columns = c(0,1,2,3,4,5,6,7)))))
       
       Illustrations <- dbReadTable(pool, 'illustrations')
       output$IllustrationsTable <- DT::renderDataTable(
@@ -596,9 +606,9 @@ shinyApp(
         })
         
         Level3 <- dbReadTable(pool, 'level3')
-        Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Modification %in% Level3Selection[,4])
+        Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
         output$Level3Table <- DT::renderDataTable(
-          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+          datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
         
       }
     })
@@ -622,6 +632,10 @@ shinyApp(
                                      selectizeInput("NewPeriod", "Period", choices = c(Choose = "", periods$Period), multiple = FALSE, selected = "")),
                               column(width = 2,
                                      selectizeInput("NewBlank", "Blank", choices = c(Choose = "", blanks$Blank), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                              column(width = 2,
+                                     selectizeInput("NewCortex", "Cortex", choices = c(Choose = "", "1","2","3"), multiple = FALSE, selected = "", options = list(create = TRUE))),
+                              column(width = 2,
+                                     selectizeInput("NewTechnique", "Technique", choices = c(Choose = "", "Levallois", "Pseudo-Levallois", "Percussion", "Dejete"), multiple = FALSE, selected = "", options = list(create = TRUE))),
                               column(width = 2,
                                      selectizeInput("NewModification", "Modification", choices = c(Choose = "", modificationsList), multiple = FALSE, selected = "", options = list(create = TRUE)))
                             ),
@@ -675,17 +689,19 @@ shinyApp(
         
         Level3 <- dbReadTable(pool, 'level3')
         EquivRecordFilter <<- reactiveValues(EquivRecordFilterX = data.frame(
-          select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination & Burned==input$NewBurned), LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned), stringsAsFactors = FALSE)
+          select(filter(Level3, LocusType==input$NewLocusType & Locus==input$NewLocus & Period==input$NewPeriod & Blank==input$NewBlank & Cortex==input$NewCortex & Technique==input$NewTechnique & Modification==input$NewModification & RawMaterial==input$NewRawMaterial & Weathering==input$NewWeathering & Patination==input$NewPatination & Burned==input$NewBurned), LocusType, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned), stringsAsFactors = FALSE)
         )
         EquivRecordFilter_df <<- as.data.frame(EquivRecordFilter$EquivRecordFilterX, stringsAsFactors = FALSE)
         
         if (nrow(EquivRecordFilter_df) == 0) {
-          values <- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
+          values <- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewCortex, input$NewTechnique, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
           
           colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocusType'] <- 'LocusType'
           colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewLocus'] <- 'Locus'
           colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewPeriod'] <- 'Period'
           colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewBlank'] <- 'Blank'
+          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewCortex'] <- 'Cortex'
+          colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewTechnique'] <- 'Technique'
           colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewModification'] <- 'Modification'
           colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewRawMaterial'] <- 'RawMaterial'
           colnames(values$singleResponse_df)[colnames(values$singleResponse_df) == 'input.NewWeathering'] <- 'Weathering'
@@ -698,6 +714,8 @@ shinyApp(
           NewRecord$LocusType <- as.character(NewRecord$LocusType)
           NewRecord$Period <- as.character(NewRecord$Period)
           NewRecord$Blank <- as.character(NewRecord$Blank)
+          NewRecord$Cortex <- as.character(NewRecord$Cortex)
+          NewRecord$Technique <- as.character(NewRecord$Technique)
           NewRecord$Modification <- as.character(NewRecord$Modification)
           NewRecord$RawMaterial <- as.character(NewRecord$RawMaterial)
           NewRecord$Weathering <- as.character(NewRecord$Weathering)
@@ -705,19 +723,21 @@ shinyApp(
           NewRecord$Burned <- as.character(NewRecord$Burned)
           NewRecord$Quantity <- as.numeric(NewRecord$Quantity)
           
-          WriteNewLevel2Record <- glue::glue_sql("INSERT INTO `level2` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `Quantity`) VALUES ({NewRecord$Locus}, {NewRecord$LocusType}, {NewRecord$Period}, {NewRecord$Blank}, {NewRecord$Modification}, {NewRecord$Quantity})", .con = pool)
+          WriteNewLevel2Record <- glue::glue_sql("INSERT INTO `level2` (`Locus`, `LocusType`, `Period`, `Blank`, `Cortex`, `Technique`, `Modification`, `Quantity`) VALUES ({NewRecord$Locus}, {NewRecord$LocusType}, {NewRecord$Period}, {NewRecord$Blank}, {NewRecord$Cortex}, {NewRecord$Technique}, {NewRecord$Modification}, {NewRecord$Quantity})", .con = pool)
           WriteNewLevel2Record <<- as.character(WriteNewLevel2Record)
           WriteNewLevel2Record
           dbExecute(pool, sqlInterpolate(ANSI(), WriteNewLevel2Record))
           
-          ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
+          ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewCortex, input$NewTechnique, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
           toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
-          singleRow_expanded <<- expandRows(toExpand, count = 10, count.is.col = TRUE, drop = TRUE)
+          singleRow_expanded <<- expandRows(toExpand, count = 12, count.is.col = TRUE, drop = TRUE)
           
           colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
           colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
           colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
           colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewBlank'] <- 'Blank'
+          colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewCortex'] <- 'Cortex'
+          colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewTechnique'] <- 'Technique'
           colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewModification'] <- 'Modification'
           colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewRawMaterial'] <- 'RawMaterial'
           colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewWeathering'] <- 'Weathering'
@@ -729,6 +749,8 @@ shinyApp(
           singleRow_expanded$LocusType <- as.character(singleRow_expanded$LocusType)
           singleRow_expanded$Period <- as.character(singleRow_expanded$Period)
           singleRow_expanded$Blank <- as.character(singleRow_expanded$Blank)
+          singleRow_expanded$Cortex <- as.character(singleRow_expanded$Cortex)
+          singleRow_expanded$Technique <- as.character(singleRow_expanded$Technique)
           singleRow_expanded$Modification <- as.character(singleRow_expanded$Modification)
           singleRow_expanded$RawMaterial <- as.character(singleRow_expanded$RawMaterial)
           singleRow_expanded$Weathering <- as.character(singleRow_expanded$Weathering)
@@ -737,7 +759,7 @@ shinyApp(
           
           for (j in (1:nrow(singleRow_expanded))) {
             ArtefactIDQuantityDifferenceNewRecords <<- nrow(singleRow_expanded)
-            NewArtefactRecordsFromDifferenceNewRecords <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), Burned = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
+            NewArtefactRecordsFromDifferenceNewRecords <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Cortex = as.character(), Technique = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), Burned = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
             getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
             latestARid <- as.character(dbGetQuery(pool, getnewARid))
             latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
@@ -752,7 +774,7 @@ shinyApp(
             }
           }
           
-          write_level3 <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `RawMaterial`, `Weathering`, `Patination`, `Burned`, `ArtefactID`) VALUES ({NewArtefactRecordsFromDifferenceNewRecords$Locus}, {NewArtefactRecordsFromDifferenceNewRecords$LocusType}, {NewArtefactRecordsFromDifferenceNewRecords$Period}, {NewArtefactRecordsFromDifferenceNewRecords$Blank}, {NewArtefactRecordsFromDifferenceNewRecords$Modification}, {NewArtefactRecordsFromDifferenceNewRecords$RawMaterial}, {NewArtefactRecordsFromDifferenceNewRecords$Weathering}, {NewArtefactRecordsFromDifferenceNewRecords$Patination}, {NewArtefactRecordsFromDifferenceNewRecords$Burned}, {NewArtefactRecordsFromDifferenceNewRecords$ArtefactID})", .con = pool)
+          write_level3 <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Cortex`, `Technique`, `Modification`, `RawMaterial`, `Weathering`, `Patination`, `Burned`, `ArtefactID`) VALUES ({NewArtefactRecordsFromDifferenceNewRecords$Locus}, {NewArtefactRecordsFromDifferenceNewRecords$LocusType}, {NewArtefactRecordsFromDifferenceNewRecords$Period}, {NewArtefactRecordsFromDifferenceNewRecords$Blank}, {NewArtefactRecordsFromDifferenceNewRecords$Cortex}, {NewArtefactRecordsFromDifferenceNewRecords$Technique}, {NewArtefactRecordsFromDifferenceNewRecords$Modification}, {NewArtefactRecordsFromDifferenceNewRecords$RawMaterial}, {NewArtefactRecordsFromDifferenceNewRecords$Weathering}, {NewArtefactRecordsFromDifferenceNewRecords$Patination}, {NewArtefactRecordsFromDifferenceNewRecords$Burned}, {NewArtefactRecordsFromDifferenceNewRecords$ArtefactID})", .con = pool)
           m <- 1
           for (m in (1:length(write_level3))) {
             dbExecute(pool, write_level3[m])
@@ -760,7 +782,7 @@ shinyApp(
           
           Level3 <- dbReadTable(pool, 'level3')
           NewRecordsTableX <<- Level3 %>%
-            select(ArtefactID, LocusType, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned) %>%
+            select(ArtefactID, LocusType, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
             filter(ArtefactID %in% ARidstring)
           output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableX, options = list(scrollX = TRUE)))
           
@@ -768,12 +790,14 @@ shinyApp(
           NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
           NewTermPeriod <- if(!is.null(input$NewPeriod)) {input$NewPeriod} else {""}
           NewTermBlank <- if(!is.null(input$NewBlank)) {input$NewBlank} else {""}
+          NewTermCortex <- if(!is.null(input$NewCortex)) {input$NewCortex} else {""}
+          NewTermTechnique <- if(!is.null(input$NewTechnique)) {input$NewTechnique} else {""}
           NewTermModification <- if(!is.null(input$NewModification)) {input$NewModification} else {""}
           NewTermRawMaterial <- if(!is.null(input$NewRawMaterial)) {input$NewRawMaterial} else {""}
           NewTermWeathering <- if(!is.null(input$NewWeathering)) {input$NewWeathering} else {""}
           NewTermPatination <- if(!is.null(input$NewPatination)) {input$NewPatination} else {""}
           NewTermBurned <- if(!is.null(input$NewBurned)) {input$NewBurned} else {""}
-          NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination, Burned = NewTermBurned)
+          NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Cortex = NewTermCortex, Technique = NewTermTechnique, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination, Burned = NewTermBurned)
           
           CurrentResults <<- QueryResults(NewInputs)
           Level2 <- dbReadTable(pool, 'level2')
@@ -806,12 +830,14 @@ shinyApp(
           
           message1Period <- ifelse(length(NewRecord$Period),NewRecord$Period,"NULL")
           message1Blank <- ifelse(length(NewRecord$Blank),NewRecord$Blank,"NULL")
+          message1Cortex <- ifelse(length(NewRecord$Cortex),NewRecord$Cortex,"NULL")
+          message1Technique <- ifelse(length(NewRecord$Technique),NewRecord$Technique,"NULL")
           message1Modification <- ifelse(length(NewRecord$Modification),NewRecord$Modification,"NULL")
           message1RawMaterial <- ifelse(length(NewRecord$RawMaterial),NewRecord$RawMaterial,"NULL")
           message1Weathering <- ifelse(length(NewRecord$Weathering),NewRecord$Weathering,"NULL")
           message1Patination <- ifelse(length(NewRecord$Patination),"Yes","NULL")
           message1Burned <- ifelse(NewRecord$Burned!="","Yes","NULL")
-          message1 <- paste0("Created ",NewRecord$Quantity," records for ",NewRecord$LocusType," ",NewRecord$Locus," (Period: ",message1Period,", Blank: ",message1Blank,", Modification: ",message1Modification,", Raw Material: ",message1RawMaterial,", Weathering: ",message1Weathering,", Patination: ",message1Patination,", Burned: ",message1Burned,")")
+          message1 <- paste0("Created ",NewRecord$Quantity," records for ",NewRecord$LocusType," ",NewRecord$Locus," (Period: ",message1Period,", Blank: ",message1Blank,", Cortex: ",message1Cortex,", Technique: ",message1Technique,", Modification: ",message1Modification,", Raw Material: ",message1RawMaterial,", Weathering: ",message1Weathering,", Patination: ",message1Patination,", Burned: ",message1Burned,")")
           
           activitylog <- dbReadTable(pool, 'activitylog')
           activitylog <- data.frame(Log = message1,
@@ -822,17 +848,19 @@ shinyApp(
           activitylog <<- dbReadTable(pool, 'activitylog')
           activitylog
           output$NewRecordMessages <- renderText({
-            HTML((paste0("Created <b>",NewRecord$Quantity,"</b> records for ","<b>",NewRecord$LocusType," ",NewRecord$Locus,"</b>.</br>", "<b>Period:</b> ",message1Period,"</br>","<b>Blank:</b> ",message1Blank,"</br>", "<b> Modifiation:</b> ",message1Modification,"</br>","<b>Raw Material:</b> ",message1RawMaterial,"</br>","<b>Weathering:</b> ",message1Weathering,"</br>","<b>Patination:</b> ",message1Patination,"</br>","<b>Burned:</b> ",message1Burned)))
+            HTML((paste0("Created <b>",NewRecord$Quantity,"</b> records for ","<b>",NewRecord$LocusType," ",NewRecord$Locus,"</b>.</br>", "<b>Period:</b> ",message1Period,"</br>","<b>Blank:</b> ",message1Blank,"</br>","<b>Cortex:</b> ",message1Cortex,"</br>","<b>Technique:</b> ",message1Technique,"</br>","<b> Modifiation:</b> ",message1Modification,"</br>","<b>Raw Material:</b> ",message1RawMaterial,"</br>","<b>Weathering:</b> ",message1Weathering,"</br>","<b>Patination:</b> ",message1Patination,"</br>","<b>Burned:</b> ",message1Burned)))
           })
         }
         
         if (nrow(EquivRecordFilter_df) > 0) {
-          valuesx <<- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewModification, input$NewQuantity))
+          valuesx <<- reactiveValues(singleResponse_dfx = data.frame(input$NewLocus, input$NewLocusType, input$NewPeriod, input$NewBlank, input$NewCortex, input$NewTechnique, input$NewModification, input$NewQuantity))
           
           colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocusType'] <<- 'LocusType'
           colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewLocus'] <<- 'Locus'
           colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewPeriod'] <<- 'Period'
           colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewBlank'] <<- 'Blank'
+          colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewCortex'] <<- 'Cortex'
+          colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewTechnique'] <<- 'Technique'
           colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewModification'] <<- 'Modification'
           colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewRawMaterial'] <<- 'RawMaterial'
           colnames(valuesx$singleResponse_dfx)[colnames(valuesx$singleResponse_dfx) == 'input.NewWeathering'] <- 'Weathering'
@@ -858,13 +886,13 @@ shinyApp(
     })
     
     observeEvent(input$ConfirmNewRecordButton, {
-      UpdateExistingLevel2Record <<- glue::glue_sql("UPDATE `level2` SET `Quantity` = {EquivRecordQuantityUpdated} WHERE `Locus` = {EquivRecordFilter_df$Locus} AND `Period` = {EquivRecordFilter_df$Period} AND `Blank` = {EquivRecordFilter_df$Blank} AND `Modification` = {EquivRecordFilter_df$Modification}", .con = pool)
+      UpdateExistingLevel2Record <<- glue::glue_sql("UPDATE `level2` SET `Quantity` = {EquivRecordQuantityUpdated} WHERE `Locus` = {EquivRecordFilter_df$Locus} AND `Period` = {EquivRecordFilter_df$Period} AND `Blank` = {EquivRecordFilter_df$Blank} AND `Cortex` = {EquivRecordFilter_df$Cortex} AND `Technique` = {EquivRecordFilter_df$Technique} AND `Modification` = {EquivRecordFilter_df$Modification}", .con = pool)
       UpdateExistingLevel2Record <<- as.character(UpdateExistingLevel2Record)
       UpdateExistingLevel2Record
       UpdateExistingLevel2Record <<- head(UpdateExistingLevel2Record, n=1)
       dbExecute(pool, sqlInterpolate(ANSI(), UpdateExistingLevel2Record))
       
-      ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
+      ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewCortex, input$NewTechnique, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
       toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
       singleRow_expanded <<- expandRows(toExpand, count = 10, count.is.col = TRUE, drop = TRUE)
       
@@ -872,6 +900,8 @@ shinyApp(
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewPeriod'] <- 'Period'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewBlank'] <- 'Blank'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewCortex'] <- 'Cortex'
+      colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewTechnique'] <- 'Technique'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewModification'] <- 'Modification'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewRawMaterial'] <- 'RawMaterial'
       colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewWeathering'] <- 'Weathering'
@@ -883,6 +913,8 @@ shinyApp(
       singleRow_expanded$LocusType <- as.character(singleRow_expanded$LocusType)
       singleRow_expanded$Period <- as.character(singleRow_expanded$Period)
       singleRow_expanded$Blank <- as.character(singleRow_expanded$Blank)
+      singleRow_expanded$Cortex <- as.character(singleRow_expanded$Cortex)
+      singleRow_expanded$Technique <- as.character(singleRow_expanded$Technique)
       singleRow_expanded$Modification <- as.character(singleRow_expanded$Modification)
       singleRow_expanded$RawMaterial <- as.character(singleRow_expanded$RawMaterial)
       singleRow_expanded$Weathering <- as.character(singleRow_expanded$Weathering)
@@ -891,7 +923,7 @@ shinyApp(
       
       for (j in (1:nrow(singleRow_expanded))) {
         ArtefactIDQuantityDifferenceNewRecordsExisting <<- toAdd$Quantity
-        NewArtefactRecordsFromDifferenceNewRecordsExisting <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), Burned = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
+        NewArtefactRecordsFromDifferenceNewRecordsExisting <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Cortex = as.character(), Technique = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), Burned = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
         getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
         latestARid <- as.character(dbGetQuery(pool, getnewARid))
         latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
@@ -907,7 +939,7 @@ shinyApp(
         }
       }
       
-      write_level3_existing <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Modification`, `RawMaterial`, `Weathering`, `Patination`, `Burned`, `ArtefactID`) VALUES ({NewArtefactRecordsFromDifferenceNewRecordsExisting$Locus}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$LocusType}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Period}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Blank}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Modification}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$RawMaterial}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Weathering}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Patination}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Burned}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$ArtefactID})", .con = pool)
+      write_level3_existing <<- glue::glue_sql("INSERT INTO `level3` (`Locus`, `LocusType`, `Period`, `Blank`, `Cortex`, `Technique`, `Modification`, `RawMaterial`, `Weathering`, `Patination`, `Burned`, `ArtefactID`) VALUES ({NewArtefactRecordsFromDifferenceNewRecordsExisting$Locus}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$LocusType}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Period}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Blank}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Cortex}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Technique}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Modification}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$RawMaterial}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Weathering}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Patination}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$Burned}, {NewArtefactRecordsFromDifferenceNewRecordsExisting$ArtefactID})", .con = pool)
       n <- 1
       for (n in (1:length(write_level3_existing))) {
         dbExecute(pool, write_level3_existing[n])
@@ -915,20 +947,22 @@ shinyApp(
       
       Level3 <- dbReadTable(pool, 'level3')
       NewRecordsTableY <- Level3 %>%
-        select(ArtefactID, Locus, Period, Blank, Modification, RawMaterial, Weathering, Patination, Burned) %>%
-        filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination & Burned %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Burned)
+        select(ArtefactID, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
+        filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Cortex %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Cortex & Technique %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Technique & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination & Burned %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Burned)
       output$ShowNewRecords <- DT::renderDataTable(datatable(NewRecordsTableY, options = list(scrollX = TRUE)))
       
       #refresh the interface
       NewTermLocus <- if(!is.null(input$NewLocus)) {input$NewLocus} else {""}
       NewTermPeriod <- if(!is.null(input$NewPeriod)) {input$NewPeriod} else {""}
       NewTermBlank <- if(!is.null(input$NewBlank)) {input$NewBlank} else {""}
+      NewTermCortex <- if(!is.null(input$NewCortex)) {input$NewCortex} else {""}
+      NewTermTechnique <- if(!is.null(input$NewTechnique)) {input$NewTechnique} else {""}
       NewTermModification <- if(!is.null(input$NewModification)) {input$NewModification} else {""}
       NewTermRawMaterial <- if(!is.null(input$NewRawMaterial)) {input$NewRawMaterial} else {""}
       NewTermWeathering <- if(!is.null(input$NewWeathering)) {input$NewWeathering} else {""}
       NewTermPatination <- if(!is.null(input$NewPatination)) {input$NewPatination} else {""}
       NewTermBurned <- if(!is.null(input$NewBurned)) {input$NewBurned} else {""}
-      NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination, Burned = NewTermBurned)
+      NewInputs <<- list(Locus = NewTermLocus, Period = NewTermPeriod, Blank = NewTermBlank, Cortex = NewTermCortex, Technique = NewTermTechnique, Modification = NewTermModification, RawMaterial = NewTermRawMaterial, Weathering = NewTermWeathering, Patination = NewTermPatination, Burned = NewTermBurned)
       
       CurrentResults <<- QueryResults(NewInputs)
       Level2 <- dbReadTable(pool, 'level2')
@@ -961,12 +995,14 @@ shinyApp(
       
       message2Period <- ifelse(EquivRecordFilter_df$Period!="",EquivRecordFilter_df$Period,"NULL")
       message2Blank <- ifelse(EquivRecordFilter_df$Blank!="",EquivRecordFilter_df$Blank,"NULL")
+      message2Cortex <- ifelse(EquivRecordFilter_df$Cortex!="",EquivRecordFilter_df$Cortex,"NULL")
+      message2Technique <- ifelse(EquivRecordFilter_df$Technique!="",EquivRecordFilter_df$Technique,"NULL")
       message2Modification <- ifelse(EquivRecordFilter_df$Modification!="",EquivRecordFilter_df$Modification,"NULL")
       message2RawMaterial <- ifelse(EquivRecordFilter_df$RawMaterial!="",EquivRecordFilter_df$RawMaterial,"NULL")
       message2Weathering <- ifelse(EquivRecordFilter_df$Weathering!="",EquivRecordFilter_df$Weathering,"NULL")
       message2Patination <- ifelse(EquivRecordFilter_df$Patination!="","Yes","NULL")
       message2Burned <- ifelse(EquivRecordFilter_df$Burned!="","Yes","NULL")
-      message2 <- paste0("Added ",toAddQuantity_str," lithics to existing batch of ",EquivRecordFilter_df_str," records in ",head(EquivRecordFilter_df$LocusType,n=1)," ",head(EquivRecordFilter_df$Locus,n=1)," with the following configuration: ","Period: ",message2Period,", Blank: ",message2Blank,", Modification: ",message2Modification,", Raw Material: ",message2RawMaterial,", Weathering: ",message2Weathering,", Patination: ",message2Patination,", Burned: ",message2Burned,". There are now ",EquivRecordQuantityUpdated_str," records matching that configuration in this locus.")
+      message2 <- paste0("Added ",toAddQuantity_str," lithics to existing batch of ",EquivRecordFilter_df_str," records in ",head(EquivRecordFilter_df$LocusType,n=1)," ",head(EquivRecordFilter_df$Locus,n=1)," with the following configuration: ","Period: ",message2Period,", Blank: ",message2Blank,", Cortex: ",message2Cortex,", Technique: ",message2Technique,", Modification: ",message2Modification,", Raw Material: ",message2RawMaterial,", Weathering: ",message2Weathering,", Patination: ",message2Patination,", Burned: ",message2Burned,". There are now ",EquivRecordQuantityUpdated_str," records matching that configuration in this locus.")
       
       activitylog <- dbReadTable(pool, 'activitylog')
       activitylog <- data.frame(Log = message2,
@@ -978,7 +1014,7 @@ shinyApp(
       activitylog
       
       output$NewRecordMessages <- renderText({
-        HTML((paste0("Added <b>",toAddQuantity_str,"</b> lithics to existing batch of ","<b>",EquivRecordFilter_df_str,"</b> records in <b>",head(EquivRecordFilter_df$LocusType, n=1)," ",head(EquivRecordFilter_df$Locus,n=1),"</b> with the following configuration:</br>", "<b>Period:</b> ",message2Period,"</br>","<b>Blank:</b> ",message2Blank,"</br>", "<b> Modifiation:</b> ",message2Modification,"</br>","<b>Raw Material:</b> ",message2RawMaterial,"</br>","<b>Weathering:</b> ",message2Weathering,"</br>","<b>Patination:</b> ",message2Patination,"</br>","<b>Burned:</b> ",message2Burned,"</br>There are now <b>",EquivRecordQuantityUpdated_str,"</b> records matching that configuration in this locus.")))
+        HTML((paste0("Added <b>",toAddQuantity_str,"</b> lithics to existing batch of ","<b>",EquivRecordFilter_df_str,"</b> records in <b>",head(EquivRecordFilter_df$LocusType, n=1)," ",head(EquivRecordFilter_df$Locus,n=1),"</b> with the following configuration:</br>", "<b>Period:</b> ",message2Period,"</br>","<b>Blank:</b> ",message2Blank,"</br>","<b>Cortex:</b> ",message2Cortex,"</br>","<b>Technique:</b> ",message2Technique,"</br>","<b> Modification:</b> ",message2Modification,"</br>","<b>Raw Material:</b> ",message2RawMaterial,"</br>","<b>Weathering:</b> ",message2Weathering,"</br>","<b>Patination:</b> ",message2Patination,"</br>","<b>Burned:</b> ",message2Burned,"</br>There are now <b>",EquivRecordQuantityUpdated_str,"</b> records matching that configuration in this locus.")))
       })
     })
     
@@ -988,6 +1024,8 @@ shinyApp(
       updateSelectInput(session, "NewLocus", selected = "")
       updateSelectInput(session, "NewPeriod", selected = "")
       updateSelectInput(session, "NewBlank", selected = "")
+      updateSelectInput(session, "NewCortex", selected = "")
+      updateSelectInput(session, "NewTechnique", selected = "")
       updateSelectInput(session, "NewModification", selected = "")
       updateSelectInput(session, "NewQuantity", selected = "1")
       updateSelectInput(session, "NewRawMaterial", selected = "")
@@ -1005,14 +1043,16 @@ shinyApp(
         Level2IndexValues <- sel
         Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
         Level3 <- dbReadTable(pool, 'level3')
-        Level2FilterResultsEdit <<- filter(Level2, Locus %in% Level3SelectionEdit[,1] & Period %in% Level3SelectionEdit[,2] & Blank %in% Level3SelectionEdit[,3] & Modification %in% Level3SelectionEdit[,4])
-        Level3FilterResultsEdit <<- filter(Level3, Locus %in% Level3SelectionEdit[,1] & Period %in% Level3SelectionEdit[,2] & Blank %in% Level3SelectionEdit[,3] & Modification %in% Level3SelectionEdit[,4])
+        Level2FilterResultsEdit <<- filter(Level2, Locus %in% Level3SelectionEdit[,1] & Period %in% Level3SelectionEdit[,2] & Blank %in% Level3SelectionEdit[,3] & Cortex %in% Level3SelectionEdit[,4] & Technique %in% Level3SelectionEdit[,5] & Modification %in% Level3SelectionEdit[,6])
+        Level3FilterResultsEdit <<- filter(Level3, Locus %in% Level3SelectionEdit[,1] & Period %in% Level3SelectionEdit[,2] & Blank %in% Level3SelectionEdit[,3] & Cortex %in% Level3SelectionEdit[,4] & Technique %in% Level3SelectionEdit[,5] & Modification %in% Level3SelectionEdit[,6])
         
         observe({
           LocusTypeBefore <<- Level2FilterResultsEdit$LocusType
           LocusBefore <<- Level2FilterResultsEdit$Locus
           PeriodBefore <<- Level2FilterResultsEdit$Period
           BlankBefore <<- Level2FilterResultsEdit$Blank
+          CortexBefore <<- Level2FilterResultsEdit$Cortex
+          TechniqueBefore <<- Level2FilterResultsEdit$Technique
           ModificationBefore <<- Level2FilterResultsEdit$Modification
           QuantityBefore <<- Level2FilterResultsEdit$Quantity
           
@@ -1020,6 +1060,8 @@ shinyApp(
           LocusAfter <<- as.character(input$ModalLocusSelect)
           PeriodAfter <<- as.character(input$ModalPeriodSelect)
           BlankAfter <<- as.character(input$ModalBlankSelect)
+          CortexAfter <<- as.character(input$ModalCortexSelect)
+          TechniqueAfter <<- as.character(input$ModalTechniqueSelect)
           ModificationAfter <<- as.character(input$ModalModificationSelect)
           QuantityAfter <<- input$ModalQuantitySelect
           
@@ -1027,6 +1069,8 @@ shinyApp(
           LocusSame <<- identical(LocusBefore, LocusAfter)
           PeriodSame <<- identical(PeriodBefore, PeriodAfter)
           BlankSame <<- identical(BlankBefore, BlankAfter)
+          CortexSame <<- identical(CortexBefore, CortexAfter)
+          TechniqueSame <<- identical(TechniqueBefore, TechniqueAfter)
           ModificationSame <<- identical(ModificationBefore, ModificationAfter)
           QuantitySame <<- identical(QuantityBefore, QuantityAfter)
           
@@ -1135,12 +1179,14 @@ shinyApp(
           message5Locus <- ifelse(head(Level3ToBatch$Locus,n=1)!="",head(Level3ToBatch$Locus, n=1),"NULL")
           message5Period <- ifelse(head(Level3ToBatch$Period,n=1)!="",head(Level3ToBatch$Period, n=1),"NULL")
           message5Blank <- ifelse(head(Level3ToBatch$Blank,n=1)!="",head(Level3ToBatch$Blank, n=1),"NULL")
+          message5Cortex <- ifelse(head(Level3ToBatch$Cortex,n=1)!="",head(Level3ToBatch$Cortex, n=1),"NULL")
+          message5Technique <- ifelse(head(Level3ToBatch$Technique,n=1)!="",head(Level3ToBatch$Technique, n=1),"NULL")
           message5Modification <- ifelse(head(Level3ToBatch$Modification,n=1)!="",head(Level3ToBatch$Modification, n=1),"NULL")
           message5RawMaterial <- ifelse(SelectedRawMaterial!="",SelectedRawMaterial,"NULL")
           message5Weathering <- ifelse(SelectedWeathering!="",SelectedWeathering,"NULL")
           message5Patination <- ifelse(SelectedPatination!="","Yes","NULL")
           message5Burned <- ifelse(SelectedBurned!="","Yes","NULL")
-          message5 <- paste0(SelectedQuantity," lithics from ",message5LocusType," ",message5Locus," (Period: ",message5Period," Blank: ",message5Blank,", Modification: ",message5Modification,") have been assigned additional properties: Raw Material: ",message5RawMaterial,", Weathering: ",message5Weathering,", Patination: ",message5Patination,", Burned: ",message5Burned,". The following ArtefactIDs have been effected by this update: ",message5ARIDs,".")
+          message5 <- paste0(SelectedQuantity," lithics from ",message5LocusType," ",message5Locus," (Period: ",message5Period," Blank: ",message5Blank," Cortex: ",message5Cortex," Technique: ",message5Technique,", Modification: ",message5Modification,") have been assigned additional properties: Raw Material: ",message5RawMaterial,", Weathering: ",message5Weathering,", Patination: ",message5Patination,", Burned: ",message5Burned,". The following ArtefactIDs have been effected by this update: ",message5ARIDs,".")
           
           activitylog <- dbReadTable(pool, 'activitylog')
           activitylog <- data.frame(Log = message5,
@@ -1152,7 +1198,7 @@ shinyApp(
           activitylog
           
           output$BatchErrors <- renderText({
-            HTML(paste0("Update applied. <b>",SelectedQuantity,"</b> lithics from <b>",message5LocusType," ",message5Locus,"</b> (<b>Period:</b> ",message5Period,", <b>Blank:</b> ",message5Blank,", <b>Modification:</b> ",message5Modification,") have been assigned additional properties:</br><b>Raw Material:</b> ",message5RawMaterial,"</br><b>Weathering:</b> ",message5Weathering,"</br><b>Patination:</b> ",message5Patination,"</br><b>Burned:</b> ",message5Burned))
+            HTML(paste0("Update applied. <b>",SelectedQuantity,"</b> lithics from <b>",message5LocusType," ",message5Locus,"</b> (<b>Period:</b> ",message5Period,", <b>Blank:</b> ",message5Blank,", <b>Cortex:</b> ",message5Cortex,", <b>Technique:</b> ",message5Technique,", <b>Modification:</b> ",message5Modification,") have been assigned additional properties:</br><b>Raw Material:</b> ",message5RawMaterial,"</br><b>Weathering:</b> ",message5Weathering,"</br><b>Patination:</b> ",message5Patination,"</br><b>Burned:</b> ",message5Burned))
           })
           
           updateSelectInput(session, "ModalRawMaterialSelect", selected = "")
@@ -1171,9 +1217,9 @@ shinyApp(
           Level3SelectionEdit <<- to_index[Level2IndexValues, c(2,4,5,6,7,3)]
           Level3 <- dbReadTable(pool, 'level3')
           
-          Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period%in%Level3Selection[,2] & Blank%in%Level3Selection[,3] & Modification%in%Level3Selection[,4])
+          Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period%in%Level3Selection[,2] & Blank%in%Level3Selection[,3] & Cortex%in%Level3Selection[,4] & Technique%in%Level3Selection[,5] & Modification%in%Level3Selection[,6])
           output$Level3Table <- DT::renderDataTable(
-            datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5)))))
+            datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
           
         }
         
@@ -1213,6 +1259,8 @@ shinyApp(
       updateSelectizeInput(session, "Locus", selected = "")
       updateSelectizeInput(session, "Period", selected = "")
       updateSelectizeInput(session, "Blank", selected = "")
+      updateSelectizeInput(session, "Cortex", selected = "")
+      updateSelectizeInput(session, "Technique", selected = "")
       updateSelectizeInput(session, "Modification", selected = "")
       
       output$SummaryInfo <- renderText({
