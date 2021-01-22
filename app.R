@@ -35,12 +35,12 @@ onStop(function() {
     poolClose(pool)
 }) # important!
 
-# #this function will create the buttons for the datatable; they will be unique
-# shinyInput <- function(FUN, len, id, ...) {inputs <- character(len)
-# for (i in seq_len(len)) {
-#     inputs[i] <- as.character(FUN(paste0(id, i), ...))}
-# inputs
-# }
+#this function will create the buttons for the datatable; they will be unique
+shinyInput <- function(FUN, len, id, ...) {inputs <- character(len)
+for (i in seq_len(len)) {
+    inputs[i] <- as.character(FUN(paste0(id, i), ...))}
+inputs
+}
 
 #read unmodified versions of allloci, blanks and modifications tables from db - specifically for the input selection (these will subsequently be dynamically linked to Level2, so that when new loci/blanks/modifications/periods/contexts/trenches are entered these tables update w/ the new options)
 blanks <<- dbReadTable(pool, 'blanks')
@@ -81,7 +81,7 @@ shinyApp(
         )),
         tabsetPanel(id = "OverallTabs", type = "tabs",
                     tabPanel("Find",
-                             titlePanel("Lithics Processing"
+                             titlePanel("This web app is for demonstration purposes only, and is not meant for extended use. All data will be automatically wiped daily."
                              ),
                              fluidRow(
                                  column(width = 1,
@@ -348,29 +348,28 @@ shinyApp(
                     datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 
                 if (nrow(Level3FilterResults) < sum(Level3Selection$Quantity)) {
-                    # j <- 1
-                    # for (j in (1:nrow(Level3Selection))) {
-                    #     ArtefactIDQuantityDifference <<- Level3Selection$Quantity[j] - nrow(Level3FilterResults[Level3FilterResults$Locus == Level3Selection$Locus[j] & Level3FilterResults$Blank == Level3Selection$Blank[j] & Level3FilterResults$Cortex == Level3Selection$Cortex[j] & Level3FilterResults$Technique == Level3Selection$Technique[j] & Level3FilterResults$Modification == Level3Selection$Modification[j] & Level3FilterResults$Period == Level3Selection$Period[j],])
-                    #     NewArtefactRecordsFromDifference <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Cortex = as.character(), Technique = as.character(), Modification = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE) 
-                    #     getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
-                    #     latestARid <- as.character(dbGetQuery(pool, getnewARid))
-                    #     latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
-                    #     newARid <- latestARidnum + 1
-                    #     ARidseq <- seq(newARid, length.out=ArtefactIDQuantityDifference, by=1)
-                    #     ARidstring <<- as.character(paste0("AR", str_pad(ARidseq, 6, pad="0"))) 
-                    #     
-                    #     l<-1
-                    #     for (l in (1:ArtefactIDQuantityDifference)) {
-                    #         NewArtefactRecordsFromDifference[l,] <- cbind(Level3Selection %>% filter(Locus %in% Level3Selection$Locus[j] & Blank %in% Level3Selection$Blank[j] & Cortex %in% Level3Selection$Cortex[j] & Technique %in% Level3Selection$Technique[j] & Modification %in% Level3Selection$Modification[j] & Period %in% Level3Selection$Period[j]) %>% select(LocusType, Locus, Period, Blank, Cortex, Technique, Modification), data.frame(ArtefactID = ""), stringsAsFactors = F)
-                    #         NewArtefactRecordsFromDifference[l,]$ArtefactID <- ARidstring[l]
-                    #     }
-                    # }
-                    # 
-                    # write_level3FromDifference <<- glue::glue_sql("INSERT INTO `level3` (`ArtefactID`,`LocusType`, `Locus`, `Period`, `Blank`, `Cortex`, `Technique`, `Modification`) VALUES ({NewArtefactRecordsFromDifference$ArtefactID},{NewArtefactRecordsFromDifference$LocusType}, {NewArtefactRecordsFromDifference$Locus}, {NewArtefactRecordsFromDifference$Period}, {NewArtefactRecordsFromDifference$Blank}, {NewArtefactRecordsFromDifference$Cortex}, {NewArtefactRecordsFromDifference$Technique}, {NewArtefactRecordsFromDifference$Modification})", .con = pool)
-                    # k <- 1
-                    # for (k in (1:length(write_level3FromDifference))) {
-                    #     dbExecute(pool, sqlInterpolate(ANSI(), write_level3FromDifference[k]))
-                    # }
+                    j <- 1
+                    for (j in (1:nrow(Level3Selection))) {
+                        ArtefactIDQuantityDifference <<- Level3Selection$Quantity[j] - nrow(Level3FilterResults[Level3FilterResults$Locus == Level3Selection$Locus[j] & Level3FilterResults$Blank == Level3Selection$Blank[j] & Level3FilterResults$Cortex == Level3Selection$Cortex[j] & Level3FilterResults$Technique == Level3Selection$Technique[j] & Level3FilterResults$Modification == Level3Selection$Modification[j] & Level3FilterResults$Period == Level3Selection$Period[j],])
+                        NewArtefactRecordsFromDifference <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Cortex = as.character(), Technique = as.character(), Modification = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE) 
+                        getnewARid <<- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
+                        latestARid <<- as.character(dbGetQuery(pool, getnewARid))
+                        latestARidnum <<- as.numeric((str_extract(latestARid, "[0-9]+")))
+                        newARid <<- latestARidnum + 1
+                        ARidseq <<- seq(newARid, length.out=ArtefactIDQuantityDifference, by=1)
+                        ARidstring <<- as.character(paste0("AR", str_pad(ARidseq, 6, pad="0"))) 
+                        
+                        l<-1
+                        for (l in (1:ArtefactIDQuantityDifference)) {
+                            NewArtefactRecordsFromDifference[l,] <- cbind(Level3Selection %>% filter(Locus %in% Level3Selection$Locus[j] & Blank %in% Level3Selection$Blank[j] & Cortex %in% Level3Selection$Cortex[j] & Technique %in% Level3Selection$Technique[j] & Modification %in% Level3Selection$Modification[j] & Period %in% Level3Selection$Period[j]) %>% select(LocusType, Locus, Period, Blank, Cortex, Technique, Modification), data.frame(ArtefactID = ""), stringsAsFactors = F)
+                            NewArtefactRecordsFromDifference[l,]$ArtefactID <- ARidstring[l]
+                        }
+                    }
+                    
+                    write_level3FromDifference <<- glue::glue_sql("INSERT INTO `level3` (`ArtefactID`,`LocusType`, `Locus`, `Period`, `Blank`, `Cortex`, `Technique`, `Modification`) VALUES ({NewArtefactRecordsFromDifference$ArtefactID},{NewArtefactRecordsFromDifference$LocusType}, {NewArtefactRecordsFromDifference$Locus}, {NewArtefactRecordsFromDifference$Period}, {NewArtefactRecordsFromDifference$Blank}, {NewArtefactRecordsFromDifference$Cortex}, {NewArtefactRecordsFromDifference$Technique}, {NewArtefactRecordsFromDifference$Modification})", .con = pool)          k <- 1
+                    for (k in (1:length(write_level3FromDifference))) {
+                        dbExecute(pool, sqlInterpolate(ANSI(), write_level3FromDifference[k]))
+                    }
                     
                     Level3 <- dbReadTable(pool, 'level3')
                     Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
@@ -379,9 +378,6 @@ shinyApp(
                         datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 }
                 else {
-                    Level3 <- dbReadTable(pool, 'level3')
-                    Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
-                    
                     output$Level3Table <- DT::renderDataTable(
                         datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 }
@@ -765,11 +761,11 @@ shinyApp(
                     for (j in (1:nrow(singleRow_expanded))) {
                         ArtefactIDQuantityDifferenceNewRecords <<- nrow(singleRow_expanded)
                         NewArtefactRecordsFromDifferenceNewRecords <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Cortex = as.character(), Technique = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), Burned = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
-                        getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
-                        latestARid <- as.character(dbGetQuery(pool, getnewARid))
-                        latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
-                        newARid <- latestARidnum + 1
-                        ARidseq <- seq(newARid, length.out=ArtefactIDQuantityDifferenceNewRecords, by=1)
+                        getnewARid <<- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
+                        latestARid <<- as.character(dbGetQuery(pool, getnewARid))
+                        latestARidnum <<- as.numeric((str_extract(latestARid, "[0-9]+")))
+                        newARid <<- latestARidnum + 1
+                        ARidseq <<- seq(newARid, length.out=ArtefactIDQuantityDifferenceNewRecords, by=1)
                         ARidstring <<- as.character(paste0("AR", str_pad(ARidseq, 6, pad="0"))) 
                         
                         l <- 1
@@ -785,7 +781,7 @@ shinyApp(
                         dbExecute(pool, write_level3[m])
                     }
                     
-                    # Level3 <- dbReadTable(pool, 'level3')
+                    Level3 <- dbReadTable(pool, 'level3')
                     # NewRecordsTableX <<- Level3 %>%
                     #   select(ArtefactID, LocusType, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
                     #   filter(ArtefactID %in% ARidstring)
@@ -906,11 +902,11 @@ shinyApp(
             for (j in (1:nrow(singleRow_expanded))) {
                 ArtefactIDQuantityDifferenceNewRecordsExisting <<- toAdd$Quantity
                 NewArtefactRecordsFromDifferenceNewRecordsExisting <<- data.frame(LocusType = as.character(), Locus = as.character(), Period = as.character(), Blank = as.character(), Cortex = as.character(), Technique = as.character(), Modification = as.character(), RawMaterial = as.character(), Weathering = as.character(), Patination = as.character(), Burned = as.character(), ArtefactID = as.character(), stringsAsFactors = FALSE)
-                getnewARid <- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
-                latestARid <- as.character(dbGetQuery(pool, getnewARid))
-                latestARidnum <- as.numeric((str_extract(latestARid, "[0-9]+")))
-                newARid <- latestARidnum + 1
-                ARidseq <- seq(newARid, length.out=ArtefactIDQuantityDifferenceNewRecordsExisting, by=1)
+                getnewARid <<- glue::glue_sql("SELECT MAX(ArtefactID) FROM `level3`", .con = pool)
+                latestARid <<- as.character(dbGetQuery(pool, getnewARid))
+                latestARidnum <<- as.numeric((str_extract(latestARid, "[0-9]+")))
+                newARid <<- latestARidnum + 1
+                ARidseq <<- seq(newARid, length.out=ArtefactIDQuantityDifferenceNewRecordsExisting, by=1)
                 ARidstring <<- as.character(paste0("AR", str_pad(ARidseq, 6, pad="0"))) 
                 
                 l<-1
@@ -927,7 +923,7 @@ shinyApp(
                 dbExecute(pool, write_level3_existing[n])
             }
             
-            # Level3 <- dbReadTable(pool, 'level3')
+            Level3 <- dbReadTable(pool, 'level3')
             # NewRecordsTableY <- Level3 %>%
             #   select(ArtefactID, Locus, Period, Blank, Cortex, Technique, Modification, RawMaterial, Weathering, Patination, Burned) %>%
             #   filter(Locus %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Locus & Period %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Period & Blank %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Blank & Cortex %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Cortex & Technique %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Technique & Modification %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Modification & RawMaterial %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$RawMaterial & Weathering %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Weathering & Patination %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Patination & Burned %in% NewArtefactRecordsFromDifferenceNewRecordsExisting_df$Burned)
@@ -1265,7 +1261,10 @@ shinyApp(
         
         #-----AboutTab-----#
         output$aboutText <- renderText({
-            HTML(paste0(""))
+            HTML(paste0("<p>This is a demo of the <a href=\"https://github.com/zackbatist/QuARI\">Queryable Artifact Record Interface (QuARI)</a>. The database that this demo is interfacing with is modeled on the schema for the Stelida Naxos Archaeological Project (SNAP). It incorporates fictionalized data on lithic assemblages from both survey and excavation contexts.</p>
+                  <p>Lithic material from survey includes collections from <i>transect</i>, <i>grid</i>, and <i>grab samples</i> resulting from three different sampling strategies; the first two are 1m<sup>2</sup> dogleash collections while the latter are isolated finds. Excavations are divided into <i>trenches</i> that are excavated by <i>contexts</i>; lithic material is thus associated with individual contexts.</p>
+                  <p>Lithics are classified by <i>blank</i> and <i>modification</i> and assigned to a chronological <i>period</i> where possible in Level 2 analysis. In Level 3 analysis they are assigned individual <i>ArtifactID</i> #s, and additional information (<i>raw material, weathering, and patination</i>) is recorded.</p>
+                  <p>QuARI enables recording both assemblage and artifact data. In this demo you can add either Level 2 or Level 3 data (i.e., information about groups of artifacts or about individual artifacts), and the database will update accordingly.</p>"))
         })
         #-----/AboutTab-----#
         
