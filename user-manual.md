@@ -3,9 +3,9 @@ QuARI is based on workflows experienced at the Stelida Naxos Archaeological Proj
 
 By default, QuARI deals with lithic assemblages from both survey and excavation contexts. Lithic material from survey includes collections from _transect_, _grid_ and _grab samples_ resulting from three different sampling strategies; the first two are 1m<sup>2</sup> dogleash collections while the latter are isolated finds. Excavations are divided into _trenches_ that are excavated by _contexts_; lithic material is thus associated with individual contexts.
 
-Lithics are classified by _blank_ and _modification_ and assigned to a chronological _period_ where possible in Level 2 analysis. In Level 3 analysis they are assigned individual _ArtifactID_ numbers, and additional information (_raw material_, _weathering_, _patination_ and _burned_) is recorded.
+Lithics are classified by _blank_ and _modification_ and assigned to a chronological _period_ where possible in Level 2 analysis. In Level 3 analysis they are assigned individual _ArtifactID_ numbers, and additional information (_raw material_, _weathering_, _patination_ and _burned_) is recorded. Level 1 analysis comprises recording only artifact counts and weights for collection units, and has been omitted from QuARI.
 
-QuARI enables recording both assemblage and artifact data. In this demo you can add either Level 2 or Level 3 data (i.e., information about groups of artifacts or about individual artifacts), and the database will update accordingly.
+QuARI enables recording both assemblage and artifact data. You can add either Level 2 or Level 3 data (i.e., information about groups of artifacts or about individual artifacts), and the database will update accordingly.
 
 ## Instructions
 ### Find records

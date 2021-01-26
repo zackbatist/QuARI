@@ -1,7 +1,9 @@
 # Queryable Artifact Record Interface [QuARI]
 QuARI is a database interface designed to facilitate the irregular, iterative, and non-linear workflows that are commonly employed in lithic analysis. Specifically, it is designed to facilitate workflows that tack back and forth between recording assemblage-level and artefact-level data – often beginning with the former and subsequently adding the latter – and that may involve addition of particular kinds of data for limited subsets of artefacts.
 
-A demo is available at [LINK](LINK).
+A demo is available at [https://stelida.mcmaster.ca/QuARIDemo](https://stelida.mcmaster.ca/QuARIDemo/). It is for demonstration purposes only, and all new data will be wiped daily.
+
+See the [user manual](https://github.com/zackbatist/QuARI/blob/master/user-manual.md) for detailed instructions on interact with the app.
 
 ## Installation and setup
 ### Connecting with a database
