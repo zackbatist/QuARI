@@ -306,7 +306,8 @@ shinyApp(
             EmptyDT <- filter(CurrentResults, Locus=="blah")
             
             if (nrow(CurrentResults) == nrow(Level2)) {
-                output$Level2Table <- renderDataTable(datatable(EmptyDT))
+                output$Level2Table <- DT::renderDataTable(
+                    datatable(Level2[,-1], rownames = FALSE))
                 output$SummaryInfo <- renderText({
                     HTML(paste0("Identical to the complete set of Level 2 records"))
                 })
