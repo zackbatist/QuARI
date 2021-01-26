@@ -88,6 +88,7 @@ chooseGrid <- function(grid) {
 
 shinyApp(
     ui <- fluidPage(#theme = shinytheme("cerulean"),
+        useShinyjs(),
         tags$head(tags$style(
             HTML("input[type='search']:disabled {visibility:hidden}")
         )),
@@ -131,12 +132,12 @@ shinyApp(
                              ),
                              hr(),
                              tabsetPanel(id = "myTabs", type = "tabs",
-                                         tabPanel("Level 2 Selection",
+                                         tabPanel("Level 2",
                                                   br(),
                                                   DT::dataTableOutput("Level2Table"),
                                                   actionButton("EditButton", "Add artefact-level data for items in selected rows")
                                          ),
-                                         tabPanel("Level 3 Selection",
+                                         tabPanel("Level 3",
                                                   br(),
                                                   DT::dataTableOutput("Level3Table")
                                          ),
@@ -197,13 +198,13 @@ shinyApp(
     ),
     
     server <- function(input, output, session){
-        Level2 <- dbReadTable(pool, 'level2')
-        output$Level2Table <- DT::renderDataTable(
-            datatable(Level2[,-1], rownames = FALSE))
-        
-        Level3 <- dbReadTable(pool, 'level3')
-        output$Level3Table <- DT::renderDataTable(
-            datatable(Level3[,-1], rownames = FALSE))
+        # Level2 <- dbReadTable(pool, 'level2')
+        # output$Level2Table <- DT::renderDataTable(
+        #     datatable(Level2[,-1], rownames = FALSE))
+        # 
+        # Level3 <- dbReadTable(pool, 'level3')
+        # output$Level3Table <- DT::renderDataTable(
+        #     datatable(Level3[,-1], rownames = FALSE))
         
         #filtering units and loci based on prior selection
         observeEvent(input$LocusType, {
@@ -844,6 +845,8 @@ shinyApp(
                     output$NewRecordMessages <- renderText({
                         HTML((paste0("Created <b>",NewRecord$Quantity,"</b> records for ","<b>",NewRecord$LocusType," ",NewRecord$Locus,"</b>.</br>", "<b>Period:</b> ",message1Period,"</br>","<b>Blank:</b> ",message1Blank,"</br>","<b>Cortex:</b> ",message1Cortex,"</br>","<b>Technique:</b> ",message1Technique,"</br>","<b> Modifiation:</b> ",message1Modification,"</br>","<b>Raw Material:</b> ",message1RawMaterial,"</br>","<b>Weathering:</b> ",message1Weathering,"</br>","<b>Patination:</b> ",message1Patination,"</br>","<b>Burned:</b> ",message1Burned)))
                     })
+                    
+                    shinyjs::hide(id = "ConfirmNewRecordButton")
                 }
                 
                 if (nrow(EquivRecordFilter_df) > 0) {
@@ -888,7 +891,7 @@ shinyApp(
             
             ValuesToExpand <<- reactiveValues(singleResponse_df = data.frame(input$NewLocusType, input$NewLocus, input$NewPeriod, input$NewBlank, input$NewCortex, input$NewTechnique, input$NewModification, input$NewRawMaterial, input$NewWeathering, input$NewPatination, input$NewBurned, input$NewQuantity))
             toExpand <<- as.data.frame(ValuesToExpand$singleResponse_df)
-            singleRow_expanded <<- expandRows(toExpand, count = 10, count.is.col = TRUE, drop = TRUE)
+            singleRow_expanded <<- expandRows(toExpand, count = 12, count.is.col = TRUE, drop = TRUE)
             
             colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocus'] <- 'Locus'
             colnames(singleRow_expanded)[colnames(singleRow_expanded) == 'input.NewLocusType'] <- 'LocusType'
@@ -987,16 +990,19 @@ shinyApp(
                 to_index <<- CurrentResultsUpdated
             }
             
-            message2Period <- ifelse(EquivRecordFilter_df$Period!="",EquivRecordFilter_df$Period,"NULL")
-            message2Blank <- ifelse(EquivRecordFilter_df$Blank!="",EquivRecordFilter_df$Blank,"NULL")
-            message2Cortex <- ifelse(EquivRecordFilter_df$Cortex!="",EquivRecordFilter_df$Cortex,"NULL")
-            message2Technique <- ifelse(EquivRecordFilter_df$Technique!="",EquivRecordFilter_df$Technique,"NULL")
-            message2Modification <- ifelse(EquivRecordFilter_df$Modification!="",EquivRecordFilter_df$Modification,"NULL")
-            message2RawMaterial <- ifelse(EquivRecordFilter_df$RawMaterial!="",EquivRecordFilter_df$RawMaterial,"NULL")
-            message2Weathering <- ifelse(EquivRecordFilter_df$Weathering!="",EquivRecordFilter_df$Weathering,"NULL")
-            message2Patination <- ifelse(EquivRecordFilter_df$Patination!="","Yes","NULL")
-            message2Burned <- ifelse(EquivRecordFilter_df$Burned!="","Yes","NULL")
-            message2 <- paste0("Added ",toAddQuantity_str," lithics to existing batch of ",EquivRecordFilter_df_str," records in ",head(EquivRecordFilter_df$LocusType,n=1)," ",head(EquivRecordFilter_df$Locus,n=1)," with the following configuration: ","Period: ",message2Period,", Blank: ",message2Blank,", Cortex: ",message2Cortex,", Technique: ",message2Technique,", Modification: ",message2Modification,", Raw Material: ",message2RawMaterial,", Weathering: ",message2Weathering,", Patination: ",message2Patination,", Burned: ",message2Burned,". There are now ",EquivRecordQuantityUpdated_str," records matching that configuration in this locus.")
+            message2Period <- ifelse(head(EquivRecordFilter_df$Period, n=1)!="",EquivRecordFilter_df$Period,"NULL")
+            message2Blank <- ifelse(head(EquivRecordFilter_df$Blank,n=1)!="",EquivRecordFilter_df$Blank,"NULL")
+            message2Cortex <- ifelse(head(EquivRecordFilter_df$Cortex,n=1)!="",EquivRecordFilter_df$Cortex,"NULL")
+            message2Technique <- ifelse(head(EquivRecordFilter_df$Technique,n=1)!="",EquivRecordFilter_df$Technique,"NULL")
+            message2Modification <- ifelse(head(EquivRecordFilter_df$Modification,n=1)!="",EquivRecordFilter_df$Modification,"NULL")
+            message2RawMaterial <- ifelse(head(EquivRecordFilter_df$RawMaterial,n=1)!="",EquivRecordFilter_df$RawMaterial,"NULL")
+            message2Weathering <- ifelse(head(EquivRecordFilter_df$Weathering,n=1)!="",EquivRecordFilter_df$Weathering,"NULL")
+            message2Patination <- ifelse(head(EquivRecordFilter_df$Patination,n=1)!="","Yes","NULL")
+            message2Burned <- ifelse(head(EquivRecordFilter_df$Burned,n=1)!="","Yes","NULL")
+            EquivRecordFilterLocusType <- head(EquivRecordFilter_df$LocusType, n=1)
+            EquivRecordFilterLocus <- head(EquivRecordFilter_df$Locus,n=1)
+            
+            message2 <- paste0("Added ",toAddQuantity_str," lithics to existing batch of ",EquivRecordFilter_df_str," records in ",EquivRecordFilterLocusType," ",EquivRecordFilterLocus," with the following configuration: ","Period: ",message2Period,", Blank: ",message2Blank,", Cortex: ",message2Cortex,", Technique: ",message2Technique,", Modification: ",message2Modification,", Raw Material: ",message2RawMaterial,", Weathering: ",message2Weathering,", Patination: ",message2Patination,", Burned: ",message2Burned,". There are now ",EquivRecordQuantityUpdated_str," records matching that configuration in this locus.")
             
             activitylog <- dbReadTable(pool, 'activitylog')
             activitylog <- data.frame(Log = message2,
@@ -1008,8 +1014,10 @@ shinyApp(
             activitylog
             
             output$NewRecordMessages <- renderText({
-                HTML((paste0("Added <b>",toAddQuantity_str,"</b> lithics to existing batch of ","<b>",EquivRecordFilter_df_str,"</b> records in <b>",head(EquivRecordFilter_df$LocusType, n=1)," ",head(EquivRecordFilter_df$Locus,n=1),"</b> with the following configuration:</br>", "<b>Period:</b> ",message2Period,"</br>","<b>Blank:</b> ",message2Blank,"</br>","<b>Cortex:</b> ",message2Cortex,"</br>","<b>Technique:</b> ",message2Technique,"</br>","<b> Modification:</b> ",message2Modification,"</br>","<b>Raw Material:</b> ",message2RawMaterial,"</br>","<b>Weathering:</b> ",message2Weathering,"</br>","<b>Patination:</b> ",message2Patination,"</br>","<b>Burned:</b> ",message2Burned,"</br>There are now <b>",EquivRecordQuantityUpdated_str,"</b> records matching that configuration in this locus.")))
+                HTML((paste0("Added <b>",toAddQuantity_str,"</b> lithics to existing batch of ","<b>",EquivRecordFilter_df_str,"</b> records in <b>",EquivRecordFilterLocusType," ",EquivRecordFilterLocus,"</b> with the following configuration:</br>", "<b>Period:</b> ",message2Period,"</br>","<b>Blank:</b> ",message2Blank,"</br>","<b>Cortex:</b> ",message2Cortex,"</br>","<b>Technique:</b> ",message2Technique,"</br>","<b> Modification:</b> ",message2Modification,"</br>","<b>Raw Material:</b> ",message2RawMaterial,"</br>","<b>Weathering:</b> ",message2Weathering,"</br>","<b>Patination:</b> ",message2Patination,"</br>","<b>Burned:</b> ",message2Burned,"</br>There are now <b>",EquivRecordQuantityUpdated_str,"</b> records matching that configuration in this locus.")))
             })
+            
+            shinyjs::hide(id = "ConfirmNewRecordButton")
         })
         
         observeEvent(input$ClearNewInputs, {
