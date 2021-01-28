@@ -1367,28 +1367,29 @@ shinyApp(
         output$aboutText <- renderText({
             HTML(paste0('
             <h2 id="about-quari">About QuARI</h2>
-<p>This is a demo of the <a href="https://github.com/zackbatist/QuARI">Queryable Artifact Record Interface (QuARI)</a>. The database that this demo is interfacing with is modeled on the schema for the Stelida Naxos Archaeological Project (SNAP). It incorporates fictionalized data on lithic assemblages from both survey and excavation contexts.</p>
+<p>This is a demo of the <a href="https://github.com/zackbatist/QuARI" target="_blank">Queryable Artifact Record Interface (QuARI)</a>, a database interface designed to enable both assemblage-level and artifact-level data entry. The database with which this demo interfaces is modeled on the schema for the Stelida Naxos Archaeological Project (SNAP). It incorporates fictionalized data on lithic assemblages from both survey and excavation contexts.</p>
 <p>Lithic material from survey includes collections from <em>transect</em>, <em>grid</em> and <em>grab samples</em> resulting from three different sampling strategies; the first two are 1m<sup>2</sup> dogleash collections while the latter are isolated finds. Excavations are divided into <em>trenches</em> that are excavated by <em>contexts</em>; lithic material is thus associated with individual contexts.</p>
 <p>Lithics are classified by <em>blank</em> and <em>modification</em> and assigned to a chronological <em>period</em> where possible in Level 2 analysis. In Level 3 analysis they are assigned individual <em>ArtifactID</em> numbers, and additional information (<em>raw material</em>, <em>weathering</em>, <em>patination</em> and <em>burned</em>) is recorded.</p>
 <p>QuARI enables recording both assemblage and artifact data. In this demo you can add either Level 2 or Level 3 data (i.e., information about groups of artifacts or about individual artifacts), and the database will update accordingly.</p>
 <p><strong>This live instance of QuARI is for demonstration purposes only. All new data will be wiped daily.</strong></p>
 <h2 id="instructions">Instructions</h2>
-<h3 id="find-records">Find records</h3>
+<h3 id="view-records">View records</h3>
 <ol>
 <li>Enter search parameters using the dropdown menus on the main page. More than one value may be selected from each dropdown menu. Press &#39;Clear Inputs&#39; to clear reset the selected values.</li>
 <li>Press the &#39;Find&#39; button.</li>
 <li>All matching results from the Level 2 table will be populated under the Level 2 tab.</li>
-<li>The Level 3 tab will be populated with records based on the selection of rows in the Level 2 tab.</li>
-<li>Select the cell intersecting the Level 3 record and the Photos or Illustrations columns to populate the Photos and Illustrations tabs, respectively.</li>
+<li>Selecting rows in the Level 2 tab will populate the Level 3 tab accordingly.</li>
+<li>Pressing the &#39;Photos&#39; or &#39;Illustrations&#39; buttons within the Level 3 table will populate the Photos and Illustrations tabs with records corresponding with the selected artefact.</li>
 </ol>
 <h3 id="create-new-records">Create new records</h3>
 <ol>
-<li>Press the Create New button on the main page. The Create New Records box will appear.</li>
-<li>Select the desired values using the dropdown menus. Currently only one value from each dropdown may be used at a time.</li>
-<li>When all values are properly configured, Press the &#39;Create&#39; button to create new records containing those values.</li>
+<li>Press the &#39;Create New&#39; button on the main page. The Create New Records box will appear.</li>
+<li>Select the desired values using the dropdown menus.</li>
+<li>When all values are properly configured, Press the &#39;Create&#39; button to create new records containing those values. Both Level 2 and Level 3 records are created.</li>
 <li>If records matching the new record values already exist in the database, you will be prompted to confirm the creation of additional records.</li>
 </ol>
 <p><strong>Note:</strong> The Quantity field must contain a positive integer value.</p>
+<p><strong>Note:</strong> To minimize risk of data loss, there is no facility for deleting records. We encourage bad records to be flagged for review and deletion by accessing the database using another client.</p>
 <h3 id="batch-add-level-3-values">Batch add Level 3 values</h3>
 <ol>
 <li>Select rows from the Level 2 tab.</li>
@@ -1396,26 +1397,19 @@ shinyApp(
 <li>In the screen that appears, select the Level 3 values you wish to add to the selected records.</li>
 <li>Once all desired values have been selected, press &#39;Apply update&#39; to batch edit the Level 3 records and apply the changes.</li>
 </ol>
-<p><strong>Note:</strong> Only records that have no Level 3 values can be edited in this way.</p>
-<h3 id="edit-individual-level-3-data">Edit individual Level 3 data</h3>
+<p><strong>Note:</strong> To safeguard data integrity, only records that do not yet have <em>any</em> Level 3 values can be edited in this way.</p>
+<h3 id="edit-individual-level-3-records">Edit individual Level 3 records</h3>
 <ol>
-<li>In the Level 3 tab, double click on a cell to render it editable.</li>
+<li>In the Level 3 tab, double-click on a cell to render it editable.</li>
 <li>Changes are saved after moving the cursor out of the edited cell.</li>
 </ol>
 <h3 id="add-photos-and-illustrations-records">Add photos and illustrations records</h3>
 <ol>
-<li>When viewing the photos and illustrations records for a particular artefact, populate the text input fields with desired values.</li>
-<li>Press the &#39;Add new&#39; button to write the new record to the database.</li>
+<li>In the Level 3 tab, press the &#39;Photos&#39; or &#39;Illustrations&#39; buttons, which will switch you over to the Photos or Illustrations tabs, respectively. Any existing photos or illustrations corresponding with the selected artifact will be populated within the Photos or Illustrations tab.</li>
+<li>Populate the text input fields with desired values, and press the &#39;Add new&#39; button to write the new record to the database.</li>
+<li>Once these records are added, they may be edited like the Level 3 data.</li>
 </ol>
-<h2 id="features-on-the-horizon">Features on the horizon</h2>
-<ul>
-<li>Batch add and edit photo and illustration records</li>
-<li>Allow edits to Level 2 values, individually and batched</li>
-<li>Add new values to the dropdown menus (i.e. period, blank, technique, modification, raw material, etc) values on the fly</li>
-<li>Add buttons to the Level 3 table that navigate to the Photos and Illustrations tabs</li>
-<li>Autocomplete or restrict input values when editing cells in the Level 3 table</li>
-</ul>
-
+<p style="font-size:14"><strong>The code us under active development. See our <a href="https://github.com/zackbatist/QuARI/" target="_blank">GitHub page</a> for details about our upcoming plans, to submit a bug report, to request additional features, or to ask a question!</strong></p>
                         '))
             
             
