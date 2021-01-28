@@ -36,10 +36,12 @@ onStop(function() {
 }) # important!
 
 #this function will create the buttons for the datatable; they will be unique
-shinyInput <- function(FUN, len, id, ...) {inputs <- character(len)
-for (i in seq_len(len)) {
-    inputs[i] <- as.character(FUN(paste0(id, i), ...))}
-inputs
+shinyInput <- function(FUN, len, id, ...) {
+    inputs <- character(len)
+    for (i in seq_len(len)) {
+        inputs[i] <- as.character(FUN(paste0(id, i), ...))
+    }
+    inputs
 }
 
 lookups <<- dbReadTable(pool, 'lookups')
@@ -132,16 +134,18 @@ shinyApp(
                              ),
                              hr(),
                              tabsetPanel(id = "myTabs", type = "tabs",
-                                         tabPanel("Level 2",
+                                         tabPanel(title =  "Level 2",
                                                   br(),
                                                   DT::dataTableOutput("Level2Table"),
                                                   actionButton("EditButton", "Add artefact-level data for items in selected rows")
                                          ),
-                                         tabPanel("Level 3",
+                                         tabPanel(title =  "Level 3",
+                                                  value = "Level3Tab",
                                                   br(),
                                                   DT::dataTableOutput("Level3Table")
                                          ),
-                                         tabPanel("Photos",
+                                         tabPanel(title =  "Photos",
+                                                  value = "PhotosTab",
                                                   fluidRow(
                                                       br(),
                                                       column(width = 2,
@@ -162,7 +166,8 @@ shinyApp(
                                                   br(),
                                                   DT::dataTableOutput("PhotosTable")
                                          ),
-                                         tabPanel("Illustrations",
+                                         tabPanel(title =  "Illustrations",
+                                                  value = "IllustrationsTab",
                                                   fluidRow(
                                                       br(),
                                                       column(width = 3,
@@ -356,10 +361,11 @@ shinyApp(
                 Level2IndexValues <- sel
                 Level3Selection <<- to_index[Level2IndexValues, c(3,4,5,6,7,8)]
                 Level3 <- dbReadTable(pool, 'level3')
-                
                 Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
+                Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"Photos_Button\", this.id, {priority: \"event\"})')))
+                Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
                 output$Level3Table <- DT::renderDataTable(
-                    datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                    datatable(Level3FilterResults[,-c(1,11,12)], escape = FALSE, rownames = FALSE, selection="none", editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 
                 if (nrow(Level3FilterResults) < sum(Level3Selection$Quantity)) {
                     j <- 1
@@ -388,75 +394,71 @@ shinyApp(
                     
                     Level3 <- dbReadTable(pool, 'level3')
                     Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
-                    
+                    Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"Photos_Button\", this.id, {priority: \"event\"})')))
+                    Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
                     output$Level3Table <- DT::renderDataTable(
-                        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                        datatable(Level3FilterResults[,-c(1,11,12)], escape = FALSE, rownames = FALSE, selection="none", editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 }
                 else {
                     Level3 <- dbReadTable(pool, 'level3')
                     Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
-                    
+                    Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"Photos_Button\", this.id, {priority: \"event\"})')))
+                    Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
                     output$Level3Table <- DT::renderDataTable(
-                        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                        datatable(Level3FilterResults[,-c(1,11,12)], escape = FALSE, rownames = FALSE, selection="none", editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 }
-                
-                #if the 'Photo' or 'Illustration' cell is selected in the Level 3 table, that generates a query about any associated photos or illustrations. That query returns a table of existing photos/illustrations, into which new photos/illustrations can be entered if necessary. If new ones are entered, check db to generate next photo/illustration ID and assign that to the one(s) entered.        
-                
-                observe({
-                    SelectedCells <- input$Level3Table_cells_selected   #col 7 comes from selection of illustration, 8 from photo
-                    if (length(SelectedCells)) {
-                        Level3 <- dbReadTable(pool, 'level3')
-                        Level3IndexValues <<- ifelse(SelectedCells[1,2] %in% c(9,10), SelectedCells, c(0,0))
-                        Photos <- dbReadTable(pool, 'photos')
-                        Illustrations <- dbReadTable(pool, 'illustrations')
-                        PhotosFilterResults <<- filter(Photos, ArtefactID=="None")
-                        IllustrationsFilterResults <<- filter(Illustrations, ArtefactID=="None") 
-                        
-                        if (Level3IndexValues[1] == 0){
-                            Photos <- dbReadTable(pool, 'photos')
-                            output$PhotosTable <- DT::renderDataTable(
-                                datatable(PhotosFilterResults[2:10], rownames = FALSE, selection=list(mode="single", target="row")))
-                            
-                            Illustrations <- dbReadTable(pool, 'illustrations')
-                            output$IllustrationsTable <- DT::renderDataTable(
-                                datatable(IllustrationsFilterResults[2:9], rownames = FALSE, selection=list(mode="single", target="row")))
-                        }
-                        else {
-                            PhotosSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 9])
-                            PhotosSelection_str <<- as.character(PhotosSelection)
-                            Photos <- dbReadTable(pool, 'photos')
-                            PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection)
-                            output$PhotosTable <- DT::renderDataTable(
-                                datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
-                            
-                            IllustrationsSelection <<- unlist(Level3FilterResults[Level3IndexValues[1], 9])
-                            IllustrationsSelection_str <<- as.character(IllustrationsSelection)
-                            Illustrations <- dbReadTable(pool, 'illustrations')
-                            IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection)
-                            output$IllustrationsTable <- DT::renderDataTable(
-                                datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
-                        }
-                        
-                    }
-                })
-                
             }
             else {
                 Level3 <- dbReadTable(pool, 'level3')
                 Level3FilterResults <- filter(Level3, Blank=="None")
+                Level3FilterResults <- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"PhotosButton\", this.id, {priority: \"event\"})')))
+                Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
                 output$Level3Table <- DT::renderDataTable(
-                    datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                    datatable(Level3FilterResults[,-c(1,11,12)], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 
                 Photos <- dbReadTable(pool, 'photos')
                 PhotosFilterResults <- filter(Photos, ArtefactID=="None")
-                output$PhotosTable <- DT::renderDataTable(
-                    datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                # output$PhotosTable <- DT::renderDataTable(
+                #     datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
                 
                 Illustrations <- dbReadTable(pool, 'illustrations')
                 IllustrationsFilterResults <- filter(Illustrations, ArtefactID=="None")
-                output$IllustrationsTable <- DT::renderDataTable(
-                    datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                # output$IllustrationsTable <- DT::renderDataTable(
+                #     datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
             }
+        })
+        
+        
+        observeEvent(input$Photos_Button, {
+            selectedRow <- as.numeric(strsplit(input$Photos_Button, "_")[[1]][2])
+            updateTabsetPanel(session = session, inputId = "myTabs", selected = "PhotosTab")
+            SelectedArtefactID <<- Level3FilterResults[selectedRow,9]
+            SelectedLocusType <<- Level3FilterResults[selectedRow,2]
+            SelectedLocus <<- Level3FilterResults[selectedRow,3]
+            if (length(SelectedArtefactID)) {
+                Photos <- dbReadTable(pool, 'photos')
+                PhotosFilterResults <<- filter(Photos, ArtefactID==SelectedArtefactID)
+                output$PhotosTable <- DT::renderDataTable(
+                    datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
+            }
+            updateActionButton(session, "newPhoto",
+                               label = paste0("Add new photo for ",SelectedArtefactID," (",SelectedLocusType," ",SelectedLocus,")"))
+        })
+        
+        observeEvent(input$Illustrations_Button, {
+            selectedRow <- as.numeric(strsplit(input$Illustrations_Button, "_")[[1]][2])
+            updateTabsetPanel(session = session, inputId = "myTabs", selected = "IllustrationsTab")
+            SelectedArtefactID <<- Level3FilterResults[selectedRow,9]
+            SelectedLocusType <<- Level3FilterResults[selectedRow,2]
+            SelectedLocus <<- Level3FilterResults[selectedRow,3]
+            if (length(SelectedArtefactID)) {
+                Illustrations <- dbReadTable(pool, 'illustrations')
+                IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==SelectedArtefactID)
+                output$IllustrationsTable <- DT::renderDataTable(
+                    datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
+            }
+            updateActionButton(session, "newIllustration",
+                               label = paste0("Add new illustration for ",SelectedArtefactID," (",SelectedLocusType," ",SelectedLocus,")"))
         })
         
         observeEvent(input$newPhoto, once=F, {
@@ -472,6 +474,8 @@ shinyApp(
             NewPhotoCameraValue <- as.character(newPhotoResponses$NewPhotoCamera)
             NewPhotoDateValue <- as.character(newPhotoResponses$NewPhotoDate)
             NewPhotoNotesValue <- as.character(newPhotoResponses$NewPhotoNotes)
+            NewPhotoLocusType <- SelectedLocusType
+            NewPhotoLocus <- SelectedLocus
             Photos <- dbReadTable(pool, 'photos')
             PhotoNumbers <- as.character(Photos$PhotoID)
             PhotoNumbers_int <- as.numeric(gsub("([[:alpha:]])", "", PhotoNumbers))
@@ -484,30 +488,29 @@ shinyApp(
                 NewPH <- gsub("(^..)", FixedPrefixPH, NewPH)
             }
             
-            LocusForNewPhoto <- unlist(Level3FilterResults[Level3IndexValues[1], 2])
-            LocusTypeForNewPhoto <- unlist(Level3FilterResults[Level3IndexValues[1], 3])
-            newPhotoInsert <<- glue::glue_sql("INSERT INTO `photos` (`Filename`, `Photographer`, `Camera`, `Date`, `Notes`, `ArtefactID`, `PhotoID`) VALUES ({NewPhotoFilenameValue}, {NewPhotoPhotographerValue}, {NewPhotoCameraValue}, {NewPhotoDateValue}, {NewPhotoNotesValue}, {PhotosSelection_str}, {NewPH})", .con = pool)
+            newPhotoInsert <<- glue::glue_sql("INSERT INTO `photos` (`Filename`, `Photographer`, `Camera`, `Date`, `Notes`, `ArtefactID`, `PhotoID`, `LocusType`, `Locus`) VALUES ({NewPhotoFilenameValue}, {NewPhotoPhotographerValue}, {NewPhotoCameraValue}, {NewPhotoDateValue}, {NewPhotoNotesValue}, {SelectedArtefactID}, {NewPH}, {NewPhotoLocusType}, {NewPhotoLocus})", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), newPhotoInsert))
             
             Photos <- dbReadTable(pool, 'photos')
-            PhotosFilterResults <<- filter(Photos, ArtefactID==PhotosSelection_str)
+            PhotosFilterResults <<- filter(Photos, ArtefactID==SelectedArtefactID)
             output$PhotosTable <<- DT::renderDataTable(
-                datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
             updateTextInput(session, "newPhotoFilename", value = "")
             Level3 <<- dbReadTable(pool, 'level3')
-            Level3Photos <<- filter(Photos, ArtefactID==PhotosSelection)$PhotoID
+            Level3Photos <<- filter(Photos, ArtefactID==SelectedArtefactID)$PhotoID
             Level3Photos_str <<- as.character(paste(Level3Photos, collapse =  "; "))
-            Level3PhotoUpdate <<- glue::glue_sql("UPDATE `level3` SET `Photos` = {Level3Photos_str} WHERE `ArtefactID` = {PhotosSelection}", .con = pool)
+            Level3PhotoUpdate <<- glue::glue_sql("UPDATE `level3` SET `Photos` = {Level3Photos_str} WHERE `ArtefactID` = {SelectedArtefactID}", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), Level3PhotoUpdate))
             
             Level3 <- dbReadTable(pool, 'level3')
             Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
+            Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"Photos_Button\", this.id, {priority: \"event\"})')))
+            Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
             output$Level3Table <- DT::renderDataTable(
-                datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                datatable(Level3FilterResults[,-c(1,11,12)], escape = FALSE, rownames = FALSE, selection="none", editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
             
-            Photos <- dbReadTable(pool, 'photos')
             output$PhotosTable <- DT::renderDataTable(
-                datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                datatable(PhotosFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
             
             message6Filename <- ifelse(NewPhotoFilenameValue!="",NewPhotoFilenameValue,"NULL")
             message6Photographer <- ifelse(NewPhotoPhotographerValue!="",NewPhotoPhotographerValue,"NULL")
@@ -515,7 +518,7 @@ shinyApp(
             message6Camera <- ifelse(NewPhotoCameraValue!="",NewPhotoCameraValue,"NULL")
             message6Date <- ifelse(NewPhotoDateValue!="",NewPhotoDateValue,"NULL")
             message6Notes <- ifelse(NewPhotoNotesValue!="",NewPhotoNotesValue,"NULL")
-            message6 <- paste0("Recorded a new photo (",NewPH,") of ",PhotosSelection_str,". (Filename: ",message6Filename,", Photographer: ",message6Photographer,", Camera: ",message6Camera,", Date: ",message6Date,", Notes: ",message6Notes,").")
+            message6 <- paste0("Recorded a new photo (",NewPH,") of ",SelectedArtefactID,". (Filename: ",message6Filename,", Photographer: ",message6Photographer,", Camera: ",message6Camera,", Date: ",message6Date,", Notes: ",message6Notes,").")
             
             activitylog <- dbReadTable(pool, 'activitylog')
             activitylog <- data.frame(Log = message6,
@@ -526,7 +529,7 @@ shinyApp(
             activitylog <<- dbReadTable(pool, 'activitylog')
             activitylog
             output$SummaryInfo <- renderText({
-                HTML((paste0("Recorded a new photo (<b>",NewPH,"</b>) of <b>",PhotosSelection_str,"</b>.</br><b>Filename:</b> ",message6Filename,"</br><b>Photographer:</b> ",message6Photographer,"</br><b>Camera:</b> ",message6Camera,"</br><b>Date:</b> ",message6Date,"</br><b> Notes:</b> ",message6Notes)))
+                HTML((paste0("Recorded a new photo (<b>",NewPH,"</b>) of <b>",SelectedArtefactID,"</b>.</br><b>Filename:</b> ",message6Filename,"</br><b>Photographer:</b> ",message6Photographer,"</br><b>Camera:</b> ",message6Camera,"</br><b>Date:</b> ",message6Date,"</br><b> Notes:</b> ",message6Notes)))
             })
             
         })
@@ -542,6 +545,8 @@ shinyApp(
             NewIllustrationIllustratorValue <<- as.character(newIllustrationResponses$NewIllustrationIllustrator)
             NewIllustrationDateValue <<- as.character(newIllustrationResponses$NewIllustrationDate)
             NewIllustrationNotesValue <<- as.character(newIllustrationResponses$NewIllustrationNotes)
+            NewIllustrationLocusType <- SelectedLocusType
+            NewIllustrationLocus <- SelectedLocusType
             Illustrations <- dbReadTable(pool, 'illustrations')
             IllustrationNumbers <<- as.character(Illustrations$IllustrationID)
             IllustrationNumbers_int <<- as.numeric(gsub("([[:alpha:]])", "", IllustrationNumbers))
@@ -554,36 +559,35 @@ shinyApp(
                 NewDR <- gsub("(^..)", FixedPrefixDR, NewDR)
             }
             
-            LocusForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 2])
-            LocusTypeForNewIllustration <<- unlist(Level3FilterResults[Level3IndexValues[1], 3])
-            newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `Illustrator`, `Date`, `Notes`, `ArtefactID`, `IllustrationID`) VALUES ({NewIllustrationFilenameValue}, {NewIllustrationIllustratorValue}, {NewIllustrationDateValue}, {NewIllustrationNotesValue}, {IllustrationsSelection_str}, {NewDR})", .con = pool)
+            newIllustrationInsert <<- glue::glue_sql("INSERT INTO `illustrations` (`Filename`, `Illustrator`, `Date`, `Notes`, `ArtefactID`, `IllustrationID`, `LocusType`, `Locus`) VALUES ({NewIllustrationFilenameValue}, {NewIllustrationIllustratorValue}, {NewIllustrationDateValue}, {NewIllustrationNotesValue}, {SelectedArtefactID}, {NewDR}, {NewIllustrationLocusType}, {NewIllustrationLocus})", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), newIllustrationInsert))
             
             Illustrations <- dbReadTable(pool, 'illustrations')
-            IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==IllustrationsSelection_str)
+            IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==SelectedArtefactID)
             output$IllustrationsTable <<- DT::renderDataTable(
-                datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = TRUE))
+                datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
             updateTextInput(session, "newIllustrationFilename", value = "")
             Level3 <<- dbReadTable(pool, 'level3')
-            Level3Illustrations <<- filter(Illustrations, ArtefactID==IllustrationsSelection)$IllustrationID
+            Level3Illustrations <<- filter(Illustrations, ArtefactID==SelectedArtefactID)$IllustrationID
             Level3Illustrations_str <<- as.character(paste(Level3Illustrations, collapse =  "; "))
-            Level3IllustrationsUpdate <<- glue::glue_sql("UPDATE `level3` SET `Illustrations` = {Level3Illustrations_str} WHERE `ArtefactID` = {IllustrationsSelection}", .con = pool)
+            Level3IllustrationsUpdate <<- glue::glue_sql("UPDATE `level3` SET `Illustrations` = {Level3Illustrations_str} WHERE `ArtefactID` = {SelectedArtefactID}", .con = pool)
             dbExecute(pool, sqlInterpolate(ANSI(), Level3IllustrationsUpdate))
             
             Level3 <- dbReadTable(pool, 'level3')
             Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
+            Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"Photos_Button\", this.id, {priority: \"event\"})')))
+            Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
             output$Level3Table <- DT::renderDataTable(
-                datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = "cell", disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                datatable(Level3FilterResults[,-c(1,11,12)], escape = FALSE, rownames = FALSE, selection="none", editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
             
-            Illustrations <- dbReadTable(pool, 'illustrations')
             output$IllustrationsTable <- DT::renderDataTable(
-                datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row")))
+                datatable(IllustrationsFilterResults[,-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
             
             message7Filename <- ifelse(NewIllustrationFilenameValue!="",NewIllustrationFilenameValue,"NULL")
             message7Illustrator <- ifelse(NewIllustrationIllustratorValue!="",NewIllustrationIllustratorValue,"NULL")
             message7Date <- ifelse(NewIllustrationDateValue!="",NewIllustrationDateValue,"NULL")
             message7Notes <- ifelse(NewIllustrationNotesValue!="",NewIllustrationNotesValue,"NULL")
-            message7 <- paste0("Recorded a new illustration (",NewDR,") of ",IllustrationsSelection_str,". (Filename: ",message7Filename,", Illustrator: ",message7Illustrator,", Date: ",message7Date,", Notes: ",message7Notes,").")
+            message7 <- paste0("Recorded a new illustration (",NewDR,") of ",SelectedArtefactID,". (Filename: ",message7Filename,", Illustrator: ",message7Illustrator,", Date: ",message7Date,", Notes: ",message7Notes,").")
             
             activitylog <- dbReadTable(pool, 'activitylog')
             activitylog <- data.frame(Log = message7,
@@ -594,7 +598,7 @@ shinyApp(
             activitylog <<- dbReadTable(pool, 'activitylog')
             activitylog
             output$SummaryInfo <- renderText({
-                HTML((paste0("Recorded a new Illustration (<b>",NewDR,"</b>) of <b>",IllustrationsSelection_str,"</b>.</br><b>Filename:</b> ",message7Filename,"</br><b>Illustrator:</b> ",message7Illustrator,"</br><b>Date:</b> ",message7Date,"</br><b> Notes:</b> ",message7Notes)))
+                HTML((paste0("Recorded a new Illustration (<b>",NewDR,"</b>) of <b>",SelectedArtefactID,"</b>.</br><b>Filename:</b> ",message7Filename,"</br><b>Illustrator:</b> ",message7Illustrator,"</br><b>Date:</b> ",message7Date,"</br><b> Notes:</b> ",message7Notes)))
             })
             
         })
@@ -604,6 +608,7 @@ shinyApp(
             if (length(CellsToEdit)) {
                 ARtoEdit <<- Level3FilterResults[CellsToEdit$row, 9]
                 ColtoEdit <<- colnames(Level3FilterResults)[CellsToEdit$col+2]
+                Level3 <<- dbReadTable(pool, 'level3')
                 ValueToUpdate <<- Level3[Level3$ArtefactID == ARtoEdit, ColtoEdit]
                 ValueToUpdate <<- ValueToUpdate[1] # For some unknown reason ValueToUpdate comprises 7 values, so this is necessary to truncate the list.
                 UpdatedValue <<- CellsToEdit$value
@@ -626,11 +631,83 @@ shinyApp(
                 
                 Level3 <- dbReadTable(pool, 'level3')
                 Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period %in% Level3Selection[,2] & Blank %in% Level3Selection[,3] & Cortex %in% Level3Selection[,4] & Technique %in% Level3Selection[,5] & Modification %in% Level3Selection[,6])
+                Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"Photos_Button\", this.id, {priority: \"event\"})')))
+                Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
                 output$Level3Table <- DT::renderDataTable(
-                    datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                    datatable(Level3FilterResults[,-c(1,11,12)], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                 
             }
         })
+        
+        observeEvent(input$PhotosTable_cell_edit, { # For some unknown reason input$Level3Table_cell_edit does not update after an initial update. So when I update a cell from A to B and then from B to C, it only recognizes an update from A to C as if the first update never occurred. Might be related to https://github.com/rstudio/DT/issues/645.
+            CellsToEdit <<- input$PhotosTable_cell_edit
+            if (length(CellsToEdit)) {
+                PHtoEdit <<- PhotosFilterResults[CellsToEdit$row, 1]
+                PHtoEdit <<- as.character(paste0("PH", str_pad(PHtoEdit, 5, pad="0"))) 
+                ColtoEdit <<- colnames(PhotosFilterResults)[CellsToEdit$col+2]
+                Photos <<- dbReadTable(pool, 'photos')
+                ValueToUpdate <<- Photos[Photos$PhotoID == PHtoEdit, ColtoEdit]
+                ValueToUpdate <<- ValueToUpdate[1] # For some unknown reason ValueToUpdate comprises 7 values, so this is necessary to truncate the list.
+                UpdatedValue <<- CellsToEdit$value
+                EditedCell <<- glue::glue_sql("UPDATE `photos` SET {`ColtoEdit`} = {UpdatedValue} WHERE `PhotoID` = {PHtoEdit}", .con = pool)
+                dbExecute(pool, sqlInterpolate(ANSI(), EditedCell))
+                
+                message4 <- paste0("Record for ",PHtoEdit," was updated. ",ColtoEdit," was changed from ",ValueToUpdate," to ",UpdatedValue,".")
+                activitylog <- dbReadTable(pool, 'activitylog')
+                activitylog <- data.frame(Log = message4,
+                                          Timestamp = as.character(Sys.time()),
+                                          stringsAsFactors = FALSE)
+                writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+                writeActivity
+                activitylog <<- dbReadTable(pool, 'activitylog')
+                activitylog
+                
+                output$SummaryInfo <- renderText({
+                    HTML(paste0("Record for <b>",PHtoEdit,"</b> was updated. <b>",ColtoEdit,"</b> was changed from <b>",ValueToUpdate,"</b> to <b>",UpdatedValue,"</b>."))
+                })
+                
+                Photos <- dbReadTable(pool, 'photos')
+                PhotosFilterResults <<- filter(Photos, ArtefactID==SelectedArtefactID)
+                output$PhotosTable <<- DT::renderDataTable(
+                    datatable(PhotosFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
+            }
+        })
+        
+        observeEvent(input$IllustrationsTable_cell_edit, { # For some unknown reason input$Level3Table_cell_edit does not update after an initial update. So when I update a cell from A to B and then from B to C, it only recognizes an update from A to C as if the first update never occurred. Might be related to https://github.com/rstudio/DT/issues/645.
+            CellsToEdit <<- input$IllustrationsTable_cell_edit
+            if (length(CellsToEdit)) {
+                DRtoEdit <<- IllustrationsFilterResults[CellsToEdit$row, 1]
+                DRtoEdit <<- as.character(paste0("DR", str_pad(DRtoEdit, 5, pad="0"))) 
+                ColtoEdit <<- colnames(IllustrationsFilterResults)[CellsToEdit$col+2]
+                Illustrations <<- dbReadTable(pool, 'illustrations')
+                ValueToUpdate <<- Illustrations[Illustrations$IllustrationID == DRtoEdit, ColtoEdit]
+                ValueToUpdate <<- ValueToUpdate[1] # For some unknown reason ValueToUpdate comprises 7 values, so this is necessary to truncate the list.
+                UpdatedValue <<- CellsToEdit$value
+                EditedCell <<- glue::glue_sql("UPDATE `photos` SET {`ColtoEdit`} = {UpdatedValue} WHERE `IllustrationID` = {DRtoEdit}", .con = pool)
+                dbExecute(pool, sqlInterpolate(ANSI(), EditedCell))
+                
+                message4 <- paste0("Record for ",DRtoEdit," was updated. ",ColtoEdit," was changed from ",ValueToUpdate," to ",UpdatedValue,".")
+                activitylog <- dbReadTable(pool, 'activitylog')
+                activitylog <- data.frame(Log = message4,
+                                          Timestamp = as.character(Sys.time()),
+                                          stringsAsFactors = FALSE)
+                writeActivity <- dbWriteTable(pool, 'activitylog', activitylog, row.names = FALSE, append = TRUE, overwrite = FALSE, temporary = FALSE)
+                writeActivity
+                activitylog <<- dbReadTable(pool, 'activitylog')
+                activitylog
+                
+                output$SummaryInfo <- renderText({
+                    HTML(paste0("Record for <b>",DRtoEdit,"</b> was updated. <b>",ColtoEdit,"</b> was changed from <b>",ValueToUpdate,"</b> to <b>",UpdatedValue,"</b>."))
+                })
+                
+                Illustrations <- dbReadTable(pool, 'illustrations')
+                IllustrationsFilterResults <<- filter(Illustrations, ArtefactID==SelectedArtefactID)
+                output$IllustrationsTable <<- DT::renderDataTable(
+                    datatable(IllustrationsFilterResults[-1], rownames = FALSE, selection=list(mode="single", target="row"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3)))))
+            }
+        })
+        
+        
         #-----/TableFilters-----#
         
         #-----NewRecords-----#
@@ -1221,8 +1298,10 @@ shinyApp(
                     Level3 <- dbReadTable(pool, 'level3')
                     
                     Level3FilterResults <<- filter(Level3, Locus %in% Level3Selection[,1] & Period%in%Level3Selection[,2] & Blank%in%Level3Selection[,3] & Cortex%in%Level3Selection[,4] & Technique%in%Level3Selection[,5] & Modification%in%Level3Selection[,6])
+                    Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Photos = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Photos", onclick = 'Shiny.onInputChange(\"Photos_Button\", this.id, {priority: \"event\"})')))
+                    Level3FilterResults <<- as.data.frame(cbind(Level3FilterResults, Illustrations = shinyInput(actionButton, nrow(Level3FilterResults), 'button_', label = "Illustrations", onclick = 'Shiny.onInputChange(\"Illustrations_Button\", this.id, {priority: \"event\"})')))
                     output$Level3Table <- DT::renderDataTable(
-                        datatable(Level3FilterResults[-1], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
+                        datatable(Level3FilterResults[,-c(1,11,12)], rownames = FALSE, selection=list(mode="single", target="cell"), editable = list(target = 'cell', disable = list(columns = c(0,1,2,3,4,5,6,7)))))
                     
                 }
                 
