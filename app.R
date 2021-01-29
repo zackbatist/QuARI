@@ -97,7 +97,7 @@ shinyApp(
         tabsetPanel(id = "OverallTabs", type = "tabs",
                     tabPanel("Find",
                              titlePanel("QuARI"),
-                             htmlOutput("disclaimer"),
+                             # htmlOutput("disclaimer"),
                              fluidRow(
                                  column(width = 1,
                                         selectizeInput("LocusType", "Locus Type", choices = c("Context","Transect","Grid","Grab"), multiple = FALSE, selected = "Context")),
@@ -1367,11 +1367,10 @@ shinyApp(
         output$aboutText <- renderText({
             HTML(paste0('
             <h2 id="about-quari">About QuARI</h2>
-<p>This is a demo of the <a href="https://github.com/zackbatist/QuARI" target="_blank">Queryable Artifact Record Interface (QuARI)</a>, a database interface designed to enable both assemblage-level and artifact-level data entry. The database with which this demo interfaces is modeled on the schema for the Stelida Naxos Archaeological Project (SNAP). It incorporates fictionalized data on lithic assemblages from both survey and excavation contexts.</p>
+<p>The <a href="https://github.com/zackbatist/QuARI" target="_blank">Queryable Artifact Record Interface (QuARI)</a> is a database interface designed to enable both assemblage-level and artifact-level data entry. The <a href="https://github.com/zackbatist/QuARI/blob/master/QuARI-template.sql" target="_blank">template database</a> with which this demo interfaces is modeled on the schema for the Stelida Naxos Archaeological Project (SNAP). It incorporates fictionalized data on lithic assemblages from both survey and excavation contexts.</p>
 <p>Lithic material from survey includes collections from <em>transect</em>, <em>grid</em> and <em>grab samples</em> resulting from three different sampling strategies; the first two are 1m<sup>2</sup> dogleash collections while the latter are isolated finds. Excavations are divided into <em>trenches</em> that are excavated by <em>contexts</em>; lithic material is thus associated with individual contexts.</p>
 <p>Lithics are classified by <em>blank</em> and <em>modification</em> and assigned to a chronological <em>period</em> where possible in Level 2 analysis. In Level 3 analysis they are assigned individual <em>ArtifactID</em> numbers, and additional information (<em>raw material</em>, <em>weathering</em>, <em>patination</em> and <em>burned</em>) is recorded.</p>
 <p>QuARI enables recording both assemblage and artifact data. In this demo you can add either Level 2 or Level 3 data (i.e., information about groups of artifacts or about individual artifacts), and the database will update accordingly.</p>
-<p><strong>This live instance of QuARI is for demonstration purposes only. All new data will be wiped daily.</strong></p>
 <h2 id="instructions">Instructions</h2>
 <h3 id="view-records">View records</h3>
 <ol>
@@ -1415,9 +1414,9 @@ shinyApp(
             
         })
         
-        output$disclaimer <- renderText({
-            HTML(paste0('<p style="font-size:20px"><strong>This live instance of QuARI is for demonstration purposes only. All new data will be wiped daily.</strong></p>'))
-        })
+        # output$disclaimer <- renderText({
+        #     HTML(paste0('<p style="font-size:20px"><strong>This live instance of QuARI is for demonstration purposes only. All new data will be wiped daily.</strong></p>'))
+        # })
         #-----/AboutTab-----#
         
     }
